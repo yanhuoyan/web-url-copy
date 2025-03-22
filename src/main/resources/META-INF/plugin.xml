@@ -15,6 +15,7 @@
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
     <description><![CDATA[
     帮助开发者快速生成当前Java方法的HTTP请求复制到剪贴板，支持Bash Curl和Python Request两种格式。
+    还可以便捷复制URL的路径、完整URL和相对URL。
   ]]></description>
 
     <!-- Product and plugin compatibility requirements.
@@ -42,6 +43,21 @@
                 text="Copy Python Request"
                 description="Copy Python Request code for current method or class"/>
                 
+        <action id="com.rhw.weburlcopy.CopyUrlPath" 
+                class="com.rhw.weburlcopy.action.CopyUrlPathAction" 
+                text="Copy Url Path"
+                description="Copy URL path segment only for current method or class"/>
+                
+        <action id="com.rhw.weburlcopy.CopyFullUrl" 
+                class="com.rhw.weburlcopy.action.CopyFullUrlAction" 
+                text="Copy Full Url"
+                description="Copy complete URL with protocol and host for current method or class"/>
+                
+        <action id="com.rhw.weburlcopy.CopyRelationUrl" 
+                class="com.rhw.weburlcopy.action.CopyRelationUrlAction" 
+                text="Copy Relation Url"
+                description="Copy URL path with parameters but without host for current method or class"/>
+                
         <!-- Web Copy URL菜单组 -->
         <group id="WebCopyUrlGroup" class="com.rhw.weburlcopy.action.WebCopyUrlActionGroup" 
                text="Web Copy URL" description="Copy web URL for current method or class" popup="true">
@@ -50,6 +66,9 @@
             <add-to-group group-id="ProjectViewPopupMenu" anchor="first"/>
             
             <!-- 添加子菜单 -->
+            <reference ref="com.rhw.weburlcopy.CopyUrlPath"/>
+            <reference ref="com.rhw.weburlcopy.CopyFullUrl"/>
+            <reference ref="com.rhw.weburlcopy.CopyRelationUrl"/>
             <reference ref="com.rhw.weburlcopy.CopyBashCurl"/>
             <reference ref="com.rhw.weburlcopy.CopyPythonRequest"/>
         </group>

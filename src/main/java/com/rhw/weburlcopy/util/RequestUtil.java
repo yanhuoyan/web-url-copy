@@ -735,4 +735,139 @@ public class RequestUtil {
         
         return python.toString();
     }
+
+    /**
+     * 复制URL路径
+     * 只复制URL地址段，不包含host和参数
+     *
+     * @param project 当前项目
+     * @param method 目标方法
+     * @return URL路径
+     */
+    public static String copyUrlPath(Project project, PsiMethod method) {
+        if (method == null) {
+            return "";
+        }
+        
+        // 获取请求路径
+        String path = getRequestPath(method);
+        
+        // 确保路径不以斜杠开头，以适应拼接
+        if (path.startsWith("/") && path.length() > 1) {
+            path = path.substring(1);
+        }
+        
+        return path;
+    }
+    
+    /**
+     * 复制完整URL
+     * 复制包含协议、主机、路径的完整URL，如果是GET方法则带上参数
+     *
+     * @param project 当前项目
+     * @param method 目标方法
+     * @return 完整URL
+     */
+    public static String copyFullUrl(Project project, PsiMethod method) {
+        if (method == null) {
+            return "";
+        }
+        
+        String requestMethod = getRequestMethod(method);
+        String path = getRequestPath(method);
+        Map<String, String> parameters = getParameters(method);
+        
+        // 移除内部标记
+        parameters.remove("_hasJsonParam");
+        parameters.remove("_hasComplexObjectParam");
+        
+        ConfigSettings settings = ConfigSettings.getInstance(project);
+        
+        // 应用默认参数
+        parameters = settings.applyDefaultParameters(parameters);
+        
+        StringBuilder urlBuilder = new StringBuilder();
+        // 添加协议、主机和上下文路径
+        urlBuilder.append(settings.getFullUrlPrefix());
+        
+        // 添加API路径，确保路径之间只有一个斜杠
+        if (settings.getContextPath().endsWith("/") && path.startsWith("/")) {
+            urlBuilder.append(path.substring(1));
+        } else if (!settings.getContextPath().endsWith("/") && !path.startsWith("/")) {
+            urlBuilder.append("/").append(path);
+        } else {
+            urlBuilder.append(path);
+        }
+        
+        // 如果是GET方法且有参数，则添加参数
+        if (requestMethod.equals("GET") && !parameters.isEmpty() && !parameters.containsKey("body")) {
+            urlBuilder.append("?");
+            boolean first = true;
+            for (Map.Entry<String, String> entry : parameters.entrySet()) {
+                if (!first) {
+                    urlBuilder.append("&");
+                }
+                urlBuilder.append(entry.getKey()).append("=").append(entry.getValue());
+                first = false;
+            }
+        }
+        
+        return urlBuilder.toString();
+    }
+    
+    /**
+     * 复制相对URL
+     * 复制URL的地址段和参数，不包含主机
+     *
+     * @param project 当前项目
+     * @param method 目标方法
+     * @return 相对URL
+     */
+    public static String copyRelationUrl(Project project, PsiMethod method) {
+        if (method == null) {
+            return "";
+        }
+        
+        String requestMethod = getRequestMethod(method);
+        String path = getRequestPath(method);
+        Map<String, String> parameters = getParameters(method);
+        
+        // 移除内部标记
+        parameters.remove("_hasJsonParam");
+        parameters.remove("_hasComplexObjectParam");
+        
+        ConfigSettings settings = ConfigSettings.getInstance(project);
+        
+        // 应用默认参数
+        parameters = settings.applyDefaultParameters(parameters);
+        
+        StringBuilder urlBuilder = new StringBuilder();
+        
+        // 添加上下文路径
+        urlBuilder.append(settings.getContextPath());
+        
+        // 添加API路径，确保路径之间只有一个斜杠
+        if (settings.getContextPath().endsWith("/") && path.startsWith("/")) {
+            urlBuilder.append(path.substring(1));
+        } else if (!settings.getContextPath().endsWith("/") && !path.startsWith("/")) {
+            urlBuilder.append("/").append(path);
+        } else {
+            urlBuilder.append(path);
+        }
+        
+        // 添加参数（无论什么请求方法）
+        if (!parameters.isEmpty() && !parameters.containsKey("body")) {
+            urlBuilder.append("?");
+            boolean first = true;
+            for (Map.Entry<String, String> entry : parameters.entrySet()) {
+                if (!first) {
+                    urlBuilder.append("&");
+                }
+                urlBuilder.append(entry.getKey()).append("=").append(entry.getValue());
+                first = false;
+            }
+        }
+        
+        return urlBuilder.toString();
+    }
 }
