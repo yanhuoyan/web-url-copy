@@ -18,9 +18,13 @@ import com.rhw.weburlcopy.model.UrlConfig;
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.Window;
+import java.awt.Frame;
+import java.awt.Dialog;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,8 +39,8 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
     private final Project project;
     
     // URL配置列表
-    private DefaultComboBoxModel<UrlConfig> configsComboBoxModel;
-    private JComboBox<UrlConfig> configsComboBox;
+    private DefaultTableModel configsTableModel;
+    private JBTable configsTable;
     private JBTextField configNameField;
     private JBTextField hostField;
     private JBTextField contextPathField;
@@ -65,21 +69,22 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
      */
     private void initPanel() {
         setLayout(new BorderLayout());
-        setBorder(JBUI.Borders.empty(10));
+        setBorder(JBUI.Borders.empty(15));
         
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
         
         // 创建标题
         JLabel titleLabel = new JLabel("请求配置", AllIcons.General.Settings, SwingConstants.LEFT);
-        titleLabel.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD, 14f));
-        titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+        titleLabel.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD, 16f));
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
         
         // URL配置部分
         JPanel urlConfigPanel = createUrlConfigPanel();
         
         // 创建选项卡面板
         JBTabbedPane tabbedPane = new JBTabbedPane();
+        tabbedPane.setBorder(JBUI.Borders.empty(10, 0, 0, 0));
         
         // 请求头选项卡
         JPanel headersPanel = createHeadersPanel();
@@ -111,136 +116,247 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
      */
     private JPanel createUrlConfigPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createTitledBorder(
+        panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(UIUtil.getBoundsColor(), 1, true),
-                "URL 配置",
-                TitledBorder.LEFT,
-                TitledBorder.TOP,
-                UIUtil.getLabelFont().deriveFont(Font.BOLD),
-                UIUtil.getLabelForeground()));
+                BorderFactory.createEmptyBorder(5, 5, 5, 5)));
         
-        JPanel innerPanel = new JPanel(new GridBagLayout());
-        innerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        // 添加标题
+        JLabel panelTitle = new JLabel("环境配置", AllIcons.Nodes.ConfigFolder, SwingConstants.LEFT);
+        panelTitle.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD, 14f));
+        panelTitle.setBorder(BorderFactory.createEmptyBorder(0, 5, 10, 0));
+        
+        // 单面板布局，只显示环境列表
+        JPanel envListPanel = new JPanel(new BorderLayout());
+        envListPanel.setBorder(BorderFactory.createEmptyBorder(0, 5, 5, 5));
+        
+        // 创建表格模型 - 第一列是选择框，后面是环境信息
+        String[] columnNames = {"选择", "环境名称", "主机地址", "协议", "上下文路径"};
+        configsTableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                return columnIndex == 0 ? Boolean.class : String.class;
+            }
+            
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 0; // 只有选择列可编辑
+            }
+        };
+        
+        // 创建表格
+        configsTable = new JBTable(configsTableModel);
+        configsTable.getColumnModel().getColumn(0).setMaxWidth(50);
+        configsTable.getColumnModel().getColumn(0).setPreferredWidth(50);
+        configsTable.getColumnModel().getColumn(1).setPreferredWidth(120);
+        configsTable.getColumnModel().getColumn(2).setPreferredWidth(180);
+        configsTable.getColumnModel().getColumn(3).setPreferredWidth(80);
+        configsTable.getColumnModel().getColumn(4).setPreferredWidth(150);
+        configsTable.setRowHeight(32);
+        configsTable.setShowGrid(false);
+        configsTable.setIntercellSpacing(new Dimension(0, 0));
+        configsTable.getTableHeader().setReorderingAllowed(false);
+        configsTable.getTableHeader().setDefaultRenderer(new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                label.setFont(label.getFont().deriveFont(Font.BOLD));
+                label.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(0, 0, 1, 0, UIUtil.getBoundsColor()),
+                        BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+                label.setBackground(UIUtil.getPanelBackground());
+                return label;
+            }
+        });
+        configsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        
+        // 监听复选框变化
+        configsTableModel.addTableModelListener(e -> {
+            if (e.getColumn() == 0) { // 选择列
+                int row = e.getFirstRow();
+                if (row >= 0) {
+                    Boolean selected = (Boolean) configsTableModel.getValueAt(row, 0);
+                    if (selected) {
+                        // 取消其他行的选中状态
+                        for (int i = 0; i < configsTableModel.getRowCount(); i++) {
+                            if (i != row) {
+                                configsTableModel.setValueAt(false, i, 0);
+                            }
+                        }
+                        
+                        // 设置活动配置
+                        ConfigSettings settings = ConfigSettings.getInstance(project);
+                        List<UrlConfig> configs = settings.getUrlConfigs();
+                        if (row < configs.size()) {
+                            UrlConfig config = configs.get(row);
+                            settings.setActiveConfigId(config.getId());
+                            updateUrlPreview();
+                        }
+                    } else {
+                        // 确保至少有一个选中项
+                        boolean hasSelection = false;
+                        for (int i = 0; i < configsTableModel.getRowCount(); i++) {
+                            if ((Boolean) configsTableModel.getValueAt(i, 0)) {
+                                hasSelection = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!hasSelection && configsTableModel.getRowCount() > 0) {
+                            configsTableModel.setValueAt(true, row, 0);
+                        }
+                    }
+                }
+            }
+        });
+        
+        // 添加双击编辑事件
+        configsTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int row = configsTable.getSelectedRow();
+                    if (row >= 0) {
+                        ConfigSettings settings = ConfigSettings.getInstance(project);
+                        List<UrlConfig> configs = settings.getUrlConfigs();
+                        if (row < configs.size()) {
+                            showConfigDialog(configs.get(row), false);
+                        }
+                    }
+                }
+            }
+        });
+        
+        // 滚动面板
+        JBScrollPane scrollPane = new JBScrollPane(configsTable);
+        envListPanel.add(scrollPane, BorderLayout.CENTER);
+        
+        // 按钮面板
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        
+        JButton addButton = new JButton("添加环境", AllIcons.General.Add);
+        addButton.addActionListener(e -> addNewConfig());
+        
+        JButton editButton = new JButton("修改环境", AllIcons.Actions.Edit);
+        editButton.addActionListener(e -> {
+            int selectedRow = configsTable.getSelectedRow();
+            if (selectedRow >= 0) {
+                ConfigSettings settings = ConfigSettings.getInstance(project);
+                List<UrlConfig> configs = settings.getUrlConfigs();
+                if (selectedRow < configs.size()) {
+                    showConfigDialog(configs.get(selectedRow), false);
+                }
+            } else {
+                Messages.showInfoMessage(project, "请先选择要修改的环境", "提示");
+            }
+        });
+        
+        JButton removeButton = new JButton("删除环境", AllIcons.General.Remove);
+        removeButton.addActionListener(e -> deleteSelectedConfig());
+        
+        buttonPanel.add(addButton);
+        buttonPanel.add(editButton);
+        buttonPanel.add(removeButton);
+        
+        envListPanel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        // URL预览面板
+        JPanel previewPanel = new JPanel(new BorderLayout());
+        previewPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 0, 10));
+        
+        JPanel previewContent = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JLabel previewLabel = new JLabel("URL预览:");
+        JLabel urlPreviewLabel = new JLabel("http://localhost");
+        urlPreviewLabel.setForeground(UIUtil.getContextHelpForeground());
+        
+        previewContent.add(previewLabel);
+        previewContent.add(urlPreviewLabel);
+        
+        previewPanel.add(previewContent, BorderLayout.NORTH);
+        
+        // 添加到主面板
+        panel.add(envListPanel, BorderLayout.CENTER);
+        panel.add(previewPanel, BorderLayout.SOUTH);
+        
+        return panel;
+    }
+    
+    /**
+     * 显示环境配置对话框
+     * 
+     * @param config 要编辑的配置，如果为新建则传入null
+     * @param isNew 是否为新建配置
+     */
+    private void showConfigDialog(UrlConfig config, boolean isNew) {
+        // 创建对话框
+        Window parentWindow = SwingUtilities.getWindowAncestor(this);
+        JDialog dialog;
+        if (parentWindow instanceof Frame) {
+            dialog = new JDialog((Frame) parentWindow, "环境配置", true);
+        } else if (parentWindow instanceof Dialog) {
+            dialog = new JDialog((Dialog) parentWindow, "环境配置", true);
+        } else {
+            dialog = new JDialog(new JFrame(), "环境配置", true);
+        }
+        
+        dialog.setSize(550, 350);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+        
+        // 创建表单面板
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBorder(BorderFactory.createEmptyBorder(25, 25, 25, 25));
         GridBagConstraints c = new GridBagConstraints();
         
-        // 配置选择下拉框
+        // 添加标题
         c.gridx = 0;
         c.gridy = 0;
-        c.gridwidth = 1;
+        c.gridwidth = 4;
         c.anchor = GridBagConstraints.WEST;
-        c.insets = JBUI.insets(5, 0, 5, 10);
-        JBLabel configsLabel = new JBLabel("配置选择:");
-        innerPanel.add(configsLabel, c);
-        
-        c.gridx = 1;
-        c.gridy = 0;
-        c.gridwidth = 2;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.weightx = 1.0;
-        configsComboBoxModel = new DefaultComboBoxModel<>();
-        configsComboBox = new JComboBox<>(configsComboBoxModel);
-        configsComboBox.setRenderer(new DefaultListCellRenderer() {
-            @Override
-            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                if (value instanceof UrlConfig) {
-                    setText(((UrlConfig) value).getDisplayName());
-                }
-                return this;
-            }
-        });
-        configsComboBox.setToolTipText("选择要使用的URL配置");
-        configsComboBox.addActionListener(e -> {
-            UrlConfig selectedConfig = (UrlConfig) configsComboBox.getSelectedItem();
-            if (selectedConfig != null) {
-                // 保存当前选中配置
-                ConfigSettings settings = ConfigSettings.getInstance(project);
-                settings.setActiveConfigId(selectedConfig.getId());
-                
-                // 更新表单显示
-                loadConfigToForm(selectedConfig);
-                
-                // 更新URL预览
-                updateUrlPreview();
-            }
-        });
-        innerPanel.add(configsComboBox, c);
-        
-        // 配置操作按钮
-        c.gridx = 3;
-        c.gridy = 0;
-        c.gridwidth = 1;
-        c.fill = GridBagConstraints.NONE;
-        c.weightx = 0;
-        JPanel configButtonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
-        
-        // 添加配置按钮
-        JButton addConfigButton = new JButton("", AllIcons.General.Add);
-        addConfigButton.setToolTipText("添加新配置");
-        addConfigButton.addActionListener(e -> addNewConfig());
-        configButtonsPanel.add(addConfigButton);
-        
-        // 删除配置按钮
-        JButton deleteConfigButton = new JButton("", AllIcons.General.Remove);
-        deleteConfigButton.setToolTipText("删除当前配置");
-        deleteConfigButton.addActionListener(e -> deleteSelectedConfig());
-        configButtonsPanel.add(deleteConfigButton);
-        
-        innerPanel.add(configButtonsPanel, c);
+        c.insets = JBUI.insets(0, 0, 15, 0);
+        JLabel titleLabel = new JLabel(isNew ? "添加新环境" : "修改环境", isNew ? AllIcons.General.Add : AllIcons.Actions.Edit, SwingConstants.LEFT);
+        titleLabel.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD, 16f));
+        formPanel.add(titleLabel, c);
         
         // 配置名称
         c.gridx = 0;
         c.gridy = 1;
         c.gridwidth = 1;
-        c.weightx = 0;
-        c.fill = GridBagConstraints.NONE;
-        c.anchor = GridBagConstraints.WEST;
-        JBLabel configNameLabel = new JBLabel("配置名称:");
-        innerPanel.add(configNameLabel, c);
+        c.insets = JBUI.insets(5, 0, 5, 10);
+        JBLabel configNameLabel = new JBLabel("环境名称:");
+        configNameLabel.setFont(configNameLabel.getFont().deriveFont(Font.BOLD));
+        formPanel.add(configNameLabel, c);
         
         c.gridx = 1;
         c.gridy = 1;
         c.gridwidth = 3;
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 1.0;
-        configNameField = new JBTextField();
-        configNameField.setToolTipText("输入配置的描述性名称");
-        configNameField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                updateCurrentConfig();
-            }
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                updateCurrentConfig();
-            }
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                updateCurrentConfig();
-            }
-        });
-        innerPanel.add(configNameField, c);
+        c.insets = JBUI.insets(5, 0, 5, 0);
+        JBTextField configNameField = new JBTextField();
+        configNameField.setToolTipText("输入环境的描述性名称");
+        formPanel.add(configNameField, c);
         
         // 协议选择框
         c.gridx = 0;
         c.gridy = 2;
         c.gridwidth = 1;
+        c.fill = GridBagConstraints.NONE;
+        c.weightx = 0;
+        c.insets = JBUI.insets(5, 0, 5, 10);
         c.anchor = GridBagConstraints.WEST;
         JBLabel protocolLabel = new JBLabel("协议:");
-        innerPanel.add(protocolLabel, c);
+        protocolLabel.setFont(protocolLabel.getFont().deriveFont(Font.BOLD));
+        formPanel.add(protocolLabel, c);
         
         c.gridx = 1;
         c.gridy = 2;
         c.gridwidth = 1;
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 0.3;
-        protocolComboBox = new JComboBox<>(new String[]{"http", "https"});
+        c.insets = JBUI.insets(5, 0, 5, 0);
+        JComboBox<String> protocolComboBox = new JComboBox<>(new String[]{"http", "https"});
         protocolComboBox.setToolTipText("选择HTTP或HTTPS协议");
-        protocolComboBox.addActionListener(e -> {
-            updateCurrentConfig();
-            updateUrlPreview();
-        });
-        innerPanel.add(protocolComboBox, c);
+        formPanel.add(protocolComboBox, c);
         
         // 主机地址标签
         c.gridx = 0;
@@ -249,9 +365,11 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         c.weightx = 0;
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.WEST;
+        c.insets = JBUI.insets(5, 0, 5, 10);
         JBLabel hostLabel = new JBLabel("主机地址:");
+        hostLabel.setFont(hostLabel.getFont().deriveFont(Font.BOLD));
         hostLabel.setToolTipText("例如: api.example.com");
-        innerPanel.add(hostLabel, c);
+        formPanel.add(hostLabel, c);
         
         // 主机地址输入框
         c.gridx = 1;
@@ -259,26 +377,10 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         c.gridwidth = 3;
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 1.0;
-        hostField = new JBTextField();
+        c.insets = JBUI.insets(5, 0, 5, 0);
+        JBTextField hostField = new JBTextField();
         hostField.setToolTipText("请输入主机地址，例如: api.example.com（无需协议前缀）");
-        hostField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                updateCurrentConfig();
-                updateUrlPreview();
-            }
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                updateCurrentConfig();
-                updateUrlPreview();
-            }
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                updateCurrentConfig();
-                updateUrlPreview();
-            }
-        });
-        innerPanel.add(hostField, c);
+        formPanel.add(hostField, c);
         
         // 上下文路径标签
         c.gridx = 0;
@@ -286,9 +388,11 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         c.gridwidth = 1;
         c.weightx = 0;
         c.fill = GridBagConstraints.NONE;
+        c.insets = JBUI.insets(5, 0, 5, 10);
         JBLabel contextLabel = new JBLabel("上下文路径:");
+        contextLabel.setFont(contextLabel.getFont().deriveFont(Font.BOLD));
         contextLabel.setToolTipText("例如: /api/v1");
-        innerPanel.add(contextLabel, c);
+        formPanel.add(contextLabel, c);
         
         // 上下文路径输入框
         c.gridx = 1;
@@ -296,49 +400,171 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         c.gridwidth = 3;
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 1.0;
-        contextPathField = new JBTextField();
+        c.insets = JBUI.insets(5, 0, 5, 0);
+        JBTextField contextPathField = new JBTextField();
         contextPathField.setToolTipText("请输入API的上下文路径，例如: /api/v1");
-        contextPathField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+        formPanel.add(contextPathField, c);
+        
+        // URL预览区域
+        c.gridx = 0;
+        c.gridy = 5;
+        c.gridwidth = 4;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 1.0;
+        c.insets = JBUI.insets(15, 0, 5, 0);
+        JPanel previewPanel = new JPanel(new BorderLayout());
+        previewPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 1, 1, 1, UIUtil.getBoundsColor()),
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)));
+        previewPanel.setBackground(UIUtil.getPanelBackground());
+        
+        JPanel previewLabelPanel = new JPanel(new BorderLayout());
+        previewLabelPanel.setOpaque(false);
+        
+        JLabel previewTitle = new JLabel("URL预览", AllIcons.General.Web, SwingConstants.LEFT);
+        previewTitle.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD, 12f));
+        
+        JLabel urlPreviewLabel = new JLabel("http://localhost");
+        urlPreviewLabel.setForeground(UIUtil.getContextHelpForeground());
+        urlPreviewLabel.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD));
+        urlPreviewLabel.setBorder(BorderFactory.createEmptyBorder(5, 0, 0, 0));
+        
+        previewLabelPanel.add(previewTitle, BorderLayout.NORTH);
+        previewLabelPanel.add(urlPreviewLabel, BorderLayout.CENTER);
+        
+        previewPanel.add(previewLabelPanel, BorderLayout.CENTER);
+        formPanel.add(previewPanel, c);
+        
+        // 初始化表单数据
+        if (config != null) {
+            configNameField.setText(config.getName());
+            hostField.setText(config.getHost());
+            contextPathField.setText(config.getContextPath());
+            protocolComboBox.setSelectedItem(config.getProtocol());
+            updateUrlPreviewLabel(urlPreviewLabel, protocolComboBox.getSelectedItem().toString(), 
+                                 hostField.getText(), contextPathField.getText());
+        }
+        
+        // 添加事件监听，实时更新URL预览
+        DocumentListener docListener = new javax.swing.event.DocumentListener() {
             @Override
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                updateCurrentConfig();
-                updateUrlPreview();
+                updatePreview();
             }
             @Override
             public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                updateCurrentConfig();
-                updateUrlPreview();
+                updatePreview();
             }
             @Override
             public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                updateCurrentConfig();
-                updateUrlPreview();
+                updatePreview();
             }
+            
+            private void updatePreview() {
+                updateUrlPreviewLabel(urlPreviewLabel, protocolComboBox.getSelectedItem().toString(), 
+                                     hostField.getText(), contextPathField.getText());
+            }
+        };
+        
+        hostField.getDocument().addDocumentListener(docListener);
+        contextPathField.getDocument().addDocumentListener(docListener);
+        protocolComboBox.addActionListener(e -> {
+            updateUrlPreviewLabel(urlPreviewLabel, protocolComboBox.getSelectedItem().toString(), 
+                                 hostField.getText(), contextPathField.getText());
         });
-        innerPanel.add(contextPathField, c);
         
-        // URL预览标签
-        c.gridx = 0;
-        c.gridy = 5;
-        c.gridwidth = 1;
-        c.weightx = 0;
-        c.fill = GridBagConstraints.NONE;
-        JBLabel previewLabel = new JBLabel("URL预览:");
-        innerPanel.add(previewLabel, c);
+        // 按钮面板
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         
-        // URL预览内容
-        c.gridx = 1;
-        c.gridy = 5;
-        c.gridwidth = 3;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.weightx = 1.0;
-        JLabel urlPreviewLabel = new JLabel("http://localhost");
-        urlPreviewLabel.setForeground(UIUtil.getContextHelpForeground());
-        innerPanel.add(urlPreviewLabel, c);
+        JButton cancelButton = new JButton("取消");
+        cancelButton.addActionListener(e -> dialog.dispose());
         
-        panel.add(innerPanel, BorderLayout.CENTER);
+        JButton saveButton = new JButton("保存", AllIcons.Actions.Commit);
+        saveButton.addActionListener(e -> {
+            // 保存配置
+            String name = configNameField.getText().trim();
+            if (name.isEmpty()) {
+                Messages.showErrorDialog(dialog, "环境名称不能为空", "错误");
+                return;
+            }
+            
+            String host = hostField.getText().trim();
+            if (host.isEmpty()) {
+                Messages.showErrorDialog(dialog, "主机地址不能为空", "错误");
+                return;
+            }
+            
+            String protocol = protocolComboBox.getSelectedItem().toString();
+            String contextPath = contextPathField.getText();
+            
+            if (isNew) {
+                // 创建新配置
+                UrlConfig newConfig = new UrlConfig(name, host, contextPath, protocol);
+                ConfigSettings settings = ConfigSettings.getInstance(project);
+                settings.addUrlConfig(newConfig);
+                
+                // 更新UI并选中新创建的配置
+                refreshEnvironmentTable();
+                int rowIndex = findConfigRowIndex(newConfig.getId());
+                if (rowIndex >= 0) {
+                    configsTable.setRowSelectionInterval(rowIndex, rowIndex);
+                    configsTableModel.setValueAt(true, rowIndex, 0);
+                }
+            } else {
+                // 更新现有配置
+                config.setName(name);
+                config.setHost(host);
+                config.setContextPath(contextPath);
+                config.setProtocol(protocol);
+                
+                ConfigSettings settings = ConfigSettings.getInstance(project);
+                settings.updateUrlConfig(config);
+                
+                // 更新UI
+                refreshEnvironmentTable();
+                int rowIndex = findConfigRowIndex(config.getId());
+                if (rowIndex >= 0) {
+                    configsTable.setRowSelectionInterval(rowIndex, rowIndex);
+                }
+            }
+            
+            // 更新URL预览
+            updateUrlPreview();
+            
+            // 关闭对话框
+            dialog.dispose();
+        });
         
-        return panel;
+        buttonPanel.add(cancelButton);
+        buttonPanel.add(saveButton);
+        
+        // 添加到对话框
+        dialog.add(formPanel, BorderLayout.CENTER);
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+        
+        // 显示对话框
+        dialog.setVisible(true);
+    }
+    
+    /**
+     * 更新URL预览标签
+     */
+    private void updateUrlPreviewLabel(JLabel previewLabel, String protocol, String host, String contextPath) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(protocol).append("://");
+        sb.append(host);
+        
+        if (contextPath != null && !contextPath.isEmpty()) {
+            if (!contextPath.startsWith("/")) {
+                sb.append("/");
+            }
+            sb.append(contextPath);
+            if (contextPath.endsWith("/")) {
+                sb.setLength(sb.length() - 1);
+            }
+        }
+        
+        previewLabel.setText(sb.toString());
     }
     
     /**
@@ -348,7 +574,12 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
      */
     private JPanel createHeadersPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        
+        // 添加标题
+        JLabel panelTitle = new JLabel("HTTP请求头配置", AllIcons.General.Settings, SwingConstants.LEFT);
+        panelTitle.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD, 14f));
+        panelTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
         
         // 创建表格模型
         String[] columnNames = {"Header", "Value"};
@@ -361,29 +592,56 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         
         // 创建表格
         headersTable = new JBTable(headersTableModel);
+        headersTable.setRowHeight(30);
+        headersTable.setShowGrid(false);
+        headersTable.setIntercellSpacing(new Dimension(0, 0));
         headersTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         headersTable.getTableHeader().setReorderingAllowed(false);
+        headersTable.getTableHeader().setDefaultRenderer(new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                label.setFont(label.getFont().deriveFont(Font.BOLD));
+                label.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(0, 0, 1, 0, UIUtil.getBoundsColor()),
+                        BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+                label.setBackground(UIUtil.getPanelBackground());
+                return label;
+            }
+        });
         
         JBScrollPane scrollPane = new JBScrollPane(headersTable);
-        panel.add(scrollPane, BorderLayout.CENTER);
+        scrollPane.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(UIUtil.getBoundsColor(), 1),
+                BorderFactory.createEmptyBorder(0, 0, 0, 0)));
         
         // 操作按钮面板
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
         
         JButton addHeaderButton = new JButton("添加", AllIcons.General.Add);
+        addHeaderButton.setFocusPainted(false);
         addHeaderButton.addActionListener(e -> addHeader());
         
         JButton removeHeaderButton = new JButton("删除", AllIcons.General.Remove);
+        removeHeaderButton.setFocusPainted(false);
         removeHeaderButton.addActionListener(e -> removeHeader());
         
         JButton saveHeadersButton = new JButton("保存", AllIcons.Actions.Commit);
+        saveHeadersButton.setFocusPainted(false);
         saveHeadersButton.addActionListener(e -> saveHeaders());
         
         buttonPanel.add(addHeaderButton);
         buttonPanel.add(removeHeaderButton);
         buttonPanel.add(saveHeadersButton);
         
-        panel.add(buttonPanel, BorderLayout.SOUTH);
+        // 组合布局
+        JPanel contentPanel = new JPanel(new BorderLayout());
+        contentPanel.add(panelTitle, BorderLayout.NORTH);
+        contentPanel.add(scrollPane, BorderLayout.CENTER);
+        contentPanel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        panel.add(contentPanel, BorderLayout.CENTER);
         
         return panel;
     }
@@ -395,7 +653,12 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
      */
     private JPanel createDefaultParamsPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        
+        // 添加标题
+        JLabel panelTitle = new JLabel("默认参数配置", AllIcons.Nodes.Parameter, SwingConstants.LEFT);
+        panelTitle.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD, 14f));
+        panelTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
         
         // 创建表格模型
         String[] columnNames = {"参数名", "默认值"};
@@ -408,29 +671,56 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         
         // 创建表格
         paramsTable = new JBTable(paramsTableModel);
+        paramsTable.setRowHeight(30);
+        paramsTable.setShowGrid(false);
+        paramsTable.setIntercellSpacing(new Dimension(0, 0));
         paramsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         paramsTable.getTableHeader().setReorderingAllowed(false);
+        paramsTable.getTableHeader().setDefaultRenderer(new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                label.setFont(label.getFont().deriveFont(Font.BOLD));
+                label.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(0, 0, 1, 0, UIUtil.getBoundsColor()),
+                        BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+                label.setBackground(UIUtil.getPanelBackground());
+                return label;
+            }
+        });
         
         JBScrollPane scrollPane = new JBScrollPane(paramsTable);
-        panel.add(scrollPane, BorderLayout.CENTER);
+        scrollPane.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(UIUtil.getBoundsColor(), 1),
+                BorderFactory.createEmptyBorder(0, 0, 0, 0)));
         
         // 操作按钮面板
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
         
         JButton addParamButton = new JButton("添加", AllIcons.General.Add);
+        addParamButton.setFocusPainted(false);
         addParamButton.addActionListener(e -> addDefaultParam());
         
         JButton removeParamButton = new JButton("删除", AllIcons.General.Remove);
+        removeParamButton.setFocusPainted(false);
         removeParamButton.addActionListener(e -> removeDefaultParam());
         
         JButton saveParamsButton = new JButton("保存", AllIcons.Actions.Commit);
+        saveParamsButton.setFocusPainted(false);
         saveParamsButton.addActionListener(e -> saveDefaultParams());
         
         buttonPanel.add(addParamButton);
         buttonPanel.add(removeParamButton);
         buttonPanel.add(saveParamsButton);
         
-        panel.add(buttonPanel, BorderLayout.SOUTH);
+        // 组合布局
+        JPanel contentPanel = new JPanel(new BorderLayout());
+        contentPanel.add(panelTitle, BorderLayout.NORTH);
+        contentPanel.add(scrollPane, BorderLayout.CENTER);
+        contentPanel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        panel.add(contentPanel, BorderLayout.CENTER);
         
         return panel;
     }
@@ -439,48 +729,43 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
      * 添加新的URL配置
      */
     private void addNewConfig() {
-        String name = Messages.showInputDialog(project, "请输入配置名称:", "添加新配置", Messages.getQuestionIcon());
-        if (name != null && !name.trim().isEmpty()) {
-            // 创建新配置
-            UrlConfig newConfig = new UrlConfig(name, "localhost", "", "http");
-            
-            // 添加到配置
-            ConfigSettings settings = ConfigSettings.getInstance(project);
-            settings.addUrlConfig(newConfig);
-            
-            // 更新UI
-            refreshConfigsComboBox();
-            
-            // 选中新创建的配置
-            configsComboBox.setSelectedItem(newConfig);
-        }
+        // 显示新建环境对话框
+        showConfigDialog(null, true);
     }
     
     /**
      * 删除选中的URL配置
      */
     private void deleteSelectedConfig() {
-        UrlConfig selectedConfig = (UrlConfig) configsComboBox.getSelectedItem();
-        if (selectedConfig == null) {
+        int selectedRow = configsTable.getSelectedRow();
+        if (selectedRow < 0) {
+            Messages.showInfoMessage(project, "请先选择要删除的环境", "提示");
             return;
         }
+        
+        ConfigSettings settings = ConfigSettings.getInstance(project);
+        List<UrlConfig> configs = settings.getUrlConfigs();
+        if (selectedRow >= configs.size()) {
+            return;
+        }
+        
+        UrlConfig selectedConfig = configs.get(selectedRow);
         
         // 确认对话框
         int result = Messages.showYesNoDialog(
                 project,
-                "确定要删除配置 \"" + selectedConfig.getDisplayName() + "\" 吗?",
-                "删除配置",
+                "确定要删除环境 \"" + selectedConfig.getDisplayName() + "\" 吗?",
+                "删除环境",
                 Messages.getQuestionIcon()
         );
         
         if (result == Messages.YES) {
-            ConfigSettings settings = ConfigSettings.getInstance(project);
             boolean deleted = settings.removeUrlConfig(selectedConfig.getId());
             
             if (!deleted) {
                 Messages.showMessageDialog(
                         project,
-                        "至少需要保留一个配置，无法删除。",
+                        "至少需要保留一个环境配置，无法删除。",
                         "提示",
                         Messages.getInformationIcon()
                 );
@@ -488,72 +773,58 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
             }
             
             // 更新UI
-            refreshConfigsComboBox();
+            refreshEnvironmentTable();
             
             // 选中第一个配置
-            if (configsComboBoxModel.getSize() > 0) {
-                configsComboBox.setSelectedIndex(0);
+            if (configsTableModel.getRowCount() > 0) {
+                configsTable.setRowSelectionInterval(0, 0);
+                configsTableModel.setValueAt(true, 0, 0);
             }
         }
     }
     
     /**
-     * 更新当前选中的配置
+     * 刷新环境表格
      */
-    private void updateCurrentConfig() {
-        UrlConfig selectedConfig = (UrlConfig) configsComboBox.getSelectedItem();
-        if (selectedConfig == null) {
-            return;
+    private void refreshEnvironmentTable() {
+        // 清空表格
+        while (configsTableModel.getRowCount() > 0) {
+            configsTableModel.removeRow(0);
         }
         
-        // 更新配置数据
-        selectedConfig.setName(configNameField.getText());
-        selectedConfig.setHost(hostField.getText());
-        selectedConfig.setContextPath(contextPathField.getText());
-        selectedConfig.setProtocol((String) protocolComboBox.getSelectedItem());
-        
-        // 保存到设置
-        ConfigSettings settings = ConfigSettings.getInstance(project);
-        settings.updateUrlConfig(selectedConfig);
-        
-        // 刷新下拉框显示
-        configsComboBox.repaint();
-    }
-    
-    /**
-     * 刷新配置下拉框
-     */
-    private void refreshConfigsComboBox() {
-        // 保存当前选中的配置ID
+        // 获取配置
         ConfigSettings settings = ConfigSettings.getInstance(project);
         String activeConfigId = settings.getActiveConfigId();
         
-        // 清空下拉框并重新加载配置
-        configsComboBoxModel.removeAllElements();
+        // 添加配置到表格
         for (UrlConfig config : settings.getUrlConfigs()) {
-            configsComboBoxModel.addElement(config);
-            
-            // 如果是当前活动配置，选中它
-            if (config.getId().equals(activeConfigId)) {
-                configsComboBox.setSelectedItem(config);
-            }
+            boolean isActive = config.getId().equals(activeConfigId);
+            configsTableModel.addRow(new Object[]{
+                isActive,
+                config.getName(),
+                config.getHost(),
+                config.getProtocol(),
+                config.getContextPath()
+            });
         }
     }
     
     /**
-     * 将配置加载到表单
+     * 查找配置在列表中的索引
      * 
-     * @param config 要加载的配置
+     * @param configId 配置ID
+     * @return 配置的索引，如果没找到返回-1
      */
-    private void loadConfigToForm(UrlConfig config) {
-        if (config == null) {
-            return;
-        }
+    private int findConfigRowIndex(String configId) {
+        ConfigSettings settings = ConfigSettings.getInstance(project);
+        List<UrlConfig> configs = settings.getUrlConfigs();
         
-        configNameField.setText(config.getName());
-        hostField.setText(config.getHost());
-        contextPathField.setText(config.getContextPath());
-        protocolComboBox.setSelectedItem(config.getProtocol());
+        for (int i = 0; i < configs.size(); i++) {
+            if (configs.get(i).getId().equals(configId)) {
+                return i;
+            }
+        }
+        return -1;
     }
     
     /**
@@ -634,13 +905,17 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
     private void loadSettings() {
         ConfigSettings settings = ConfigSettings.getInstance(project);
         
-        // 加载URL配置
-        refreshConfigsComboBox();
+        // 刷新环境表格
+        refreshEnvironmentTable();
         
         // 加载当前选中的配置到表单
         UrlConfig activeConfig = settings.getActiveConfig();
         if (activeConfig != null) {
-            loadConfigToForm(activeConfig);
+            // 选中活动配置行
+            int rowIndex = findConfigRowIndex(activeConfig.getId());
+            if (rowIndex >= 0) {
+                configsTable.setRowSelectionInterval(rowIndex, rowIndex);
+            }
         }
         
         // 更新URL预览
@@ -693,7 +968,8 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
     private void updateUrlPreview() {
         JLabel urlPreviewLabel = findUrlPreviewLabel();
         if (urlPreviewLabel != null) {
-            UrlConfig config = (UrlConfig) configsComboBox.getSelectedItem();
+            ConfigSettings settings = ConfigSettings.getInstance(project);
+            UrlConfig config = settings.getActiveConfig();
             if (config != null) {
                 urlPreviewLabel.setText(config.getFullUrlPrefix());
             }
@@ -706,6 +982,7 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
      * @return URL预览标签组件
      */
     private JLabel findUrlPreviewLabel() {
+        // 查找面板中的URL预览标签
         Component[] components = ((JPanel) getComponent(0)).getComponents();
         for (Component component : components) {
             if (component instanceof JPanel) {
@@ -714,14 +991,24 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
                     if (subComponent instanceof JPanel && ((JPanel) subComponent).getBorder() instanceof TitledBorder) {
                         Component[] panelComponents = ((JPanel) subComponent).getComponents();
                         for (Component panelComponent : panelComponents) {
-                            if (panelComponent instanceof JPanel) {
-                                Component[] innerComponents = ((JPanel) panelComponent).getComponents();
-                                for (int i = 0; i < innerComponents.length; i++) {
-                                    if (innerComponents[i] instanceof JLabel && 
-                                        ((JLabel) innerComponents[i]).getText().equals("URL预览:") &&
-                                        i + 1 < innerComponents.length &&
-                                        innerComponents[i + 1] instanceof JLabel) {
-                                        return (JLabel) innerComponents[i + 1];
+                            if (panelComponent instanceof JPanel && 
+                                ((JPanel) panelComponent).getLayout() instanceof BorderLayout) {
+                                Component southComponent = ((BorderLayout)((JPanel) panelComponent).getLayout())
+                                        .getLayoutComponent(BorderLayout.SOUTH);
+                                if (southComponent instanceof JPanel) {
+                                    Component[] previewComponents = ((JPanel) southComponent).getComponents();
+                                    for (Component previewComponent : previewComponents) {
+                                        if (previewComponent instanceof JPanel) {
+                                            Component[] labels = ((JPanel) previewComponent).getComponents();
+                                            for (int i = 0; i < labels.length; i++) {
+                                                if (labels[i] instanceof JLabel && 
+                                                    ((JLabel) labels[i]).getText().equals("URL预览:") &&
+                                                    i + 1 < labels.length &&
+                                                    labels[i + 1] instanceof JLabel) {
+                                                    return (JLabel) labels[i + 1];
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
