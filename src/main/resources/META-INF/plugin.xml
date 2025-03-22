@@ -31,11 +31,27 @@
     </extensions>
 
     <actions>
-        <!-- 主菜单项 -->
-        <action id="WebCopyUrl" class="com.rhw.weburlcopy.action.WebCopyUrlActionGroup" text="Web Copy URL"
-               description="Copy web URL for current method or class">
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
-        </action>
+        <!-- 定义单独的操作 -->
+        <action id="com.rhw.weburlcopy.CopyBashCurl" 
+                class="com.rhw.weburlcopy.action.CopyBashCurlAction" 
+                text="Copy Bash Curl"
+                description="Copy Bash Curl command for current method or class"/>
+                
+        <action id="com.rhw.weburlcopy.CopyPythonRequest" 
+                class="com.rhw.weburlcopy.action.CopyPythonRequestAction" 
+                text="Copy Python Request"
+                description="Copy Python Request code for current method or class"/>
+                
+        <!-- Web Copy URL菜单组 -->
+        <group id="WebCopyUrlGroup" class="com.rhw.weburlcopy.action.WebCopyUrlActionGroup" 
+               text="Web Copy URL" description="Copy web URL for current method or class" popup="true">
+            <!-- 添加到编辑器和项目视图的右键菜单 -->
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="first"/>
+            
+            <!-- 添加子菜单 -->
+            <reference ref="com.rhw.weburlcopy.CopyBashCurl"/>
+            <reference ref="com.rhw.weburlcopy.CopyPythonRequest"/>
+        </group>
     </actions>
 </idea-plugin>
