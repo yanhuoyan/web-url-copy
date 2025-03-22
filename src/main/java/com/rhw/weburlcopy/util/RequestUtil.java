@@ -342,6 +342,7 @@ public class RequestUtil {
         
         ConfigSettings settings = ConfigSettings.getInstance(project);
         String host = settings.getHost();
+        String contextPath = settings.getContextPath();
         Map<String, String> headers = settings.getHeaders();
         
         StringBuilder curl = new StringBuilder();
@@ -353,7 +354,20 @@ public class RequestUtil {
         }
         
         // URL构建
-        curl.append("\"http://").append(host).append(path);
+        curl.append("\"").append(host);
+        // 添加上下文路径和API路径
+        if (!contextPath.isEmpty()) {
+            // 确保路径之间只有一个斜杠
+            if (contextPath.endsWith("/") && path.startsWith("/")) {
+                curl.append(contextPath).append(path.substring(1));
+            } else if (!contextPath.endsWith("/") && !path.startsWith("/")) {
+                curl.append(contextPath).append("/").append(path);
+            } else {
+                curl.append(contextPath).append(path);
+            }
+        } else {
+            curl.append(path);
+        }
         
         // 处理参数
         if (requestMethod.equals("GET") && !parameters.isEmpty() && !parameters.containsKey("body")) {
@@ -407,13 +421,28 @@ public class RequestUtil {
         
         ConfigSettings settings = ConfigSettings.getInstance(project);
         String host = settings.getHost();
+        String contextPath = settings.getContextPath();
         Map<String, String> headers = settings.getHeaders();
         
         StringBuilder python = new StringBuilder();
         python.append("import requests\n\n");
         
         // 构建URL
-        python.append("url = \"http://").append(host).append(path).append("\"\n");
+        python.append("url = \"").append(host);
+        // 添加上下文路径和API路径
+        if (!contextPath.isEmpty()) {
+            // 确保路径之间只有一个斜杠
+            if (contextPath.endsWith("/") && path.startsWith("/")) {
+                python.append(contextPath).append(path.substring(1));
+            } else if (!contextPath.endsWith("/") && !path.startsWith("/")) {
+                python.append(contextPath).append("/").append(path);
+            } else {
+                python.append(contextPath).append(path);
+            }
+        } else {
+            python.append(path);
+        }
+        python.append("\"\n");
         
         // 添加headers
         if (!headers.isEmpty()) {

@@ -21,6 +21,7 @@ import java.util.Map;
 public class ConfigSettings implements PersistentStateComponent<ConfigSettings> {
 
     private String host = "localhost";
+    private String contextPath = "";
     private Map<String, String> headers = new HashMap<>();
 
     public static ConfigSettings getInstance(Project project) {
@@ -44,6 +45,27 @@ public class ConfigSettings implements PersistentStateComponent<ConfigSettings> 
 
     public void setHost(String host) {
         this.host = host;
+    }
+
+    public String getContextPath() {
+        return contextPath;
+    }
+
+    public void setContextPath(String contextPath) {
+        // 确保上下文路径始终以斜杠开头，且不以斜杠结尾
+        if (contextPath == null) {
+            this.contextPath = "";
+            return;
+        }
+        
+        String path = contextPath.trim();
+        if (!path.isEmpty() && !path.startsWith("/")) {
+            path = "/" + path;
+        }
+        if (path.endsWith("/") && path.length() > 1) {
+            path = path.substring(0, path.length() - 1);
+        }
+        this.contextPath = path;
     }
 
     public Map<String, String> getHeaders() {
