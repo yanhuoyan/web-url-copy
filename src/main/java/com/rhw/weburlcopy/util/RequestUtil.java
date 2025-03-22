@@ -253,16 +253,11 @@ public class RequestUtil {
                     // 对于未标记为@RequestBody但也不是基本类型的参数，视为复杂对象
                     String complexTypeName = type.getPresentableText();
                     if (!complexTypeName.startsWith("java.") && !type.equals(PsiType.VOID)) {
-                        // 查看是否有特殊注解，如@RequestParam
-                        if (hasRequestParamAnnotation(param)) {
-                            // 将对象拆分为多个参数
-                            Map<String, String> objectParams = extractObjectParameters(type);
-                            parameters.putAll(objectParams);
-                        } else {
-                            // 默认作为JSON处理
-                            parameters.put(param.getName(), generateJsonForType(type));
-                            hasJsonParam = true;
-                        }
+                        // 默认将复杂对象拆分为多个参数，除非明确标记为RequestBody
+                        Map<String, String> objectParams = extractObjectParameters(type);
+                        // 为对象参数添加前缀（参数名）
+                        Map<String, String> prefixedParams = new HashMap<>(objectParams);
+                        parameters.putAll(prefixedParams);
                         hasComplexObjectParam = true;
                     }
                 }
@@ -438,9 +433,7 @@ public class RequestUtil {
             } else {
                 // 如果是嵌套对象，递归处理
                 Map<String, String> nestedParams = extractObjectParameters(fieldType);
-                for (Map.Entry<String, String> entry : nestedParams.entrySet()) {
-                    result.put(fieldName + "." + entry.getKey(), entry.getValue());
-                }
+                result.putAll(nestedParams);
             }
         }
         
@@ -522,7 +515,7 @@ public class RequestUtil {
             // 处理POST参数
             curl.append("\" ");
             if (!headers.containsKey("Content-Type")) {
-                // 如果有JSON参数，使用JSON Content-Type
+                // 优先使用form-urlencoded格式，除非明确要求使用JSON
                 if (hasJsonParam) {
                     curl.append("-H \"Content-Type: application/json\" ");
                     curl.append("-d '{");
@@ -547,6 +540,7 @@ public class RequestUtil {
                     }
                     curl.append("}'");
                 } else {
+                    // 使用form-urlencoded格式，适用于拆解的复杂对象和普通参数
                     curl.append("-H \"Content-Type: application/x-www-form-urlencoded\" ");
                     curl.append("-d \"");
                     boolean first = true;
@@ -661,8 +655,8 @@ public class RequestUtil {
                 python.append("}\n");
                 python.append("response = requests.").append(requestMethod.toLowerCase())
                       .append("(url, json=json_data, headers=headers)\n");
-            } else if (hasComplexObjectParam) {
-                // 处理表单格式的复杂对象参数
+            } else {
+                // 处理常规参数或拆解的复杂对象参数，统一使用表单数据
                 python.append("data = {\n");
                 for (Map.Entry<String, String> entry : parameters.entrySet()) {
                     String value = entry.getValue();
@@ -681,34 +675,12 @@ public class RequestUtil {
                 }
                 python.append("}\n");
                 
-                // 使用data参数而不是params
-                python.append("response = requests.").append(requestMethod.toLowerCase())
-                      .append("(url, data=data, headers=headers)\n");
-            } else {
-                // 处理常规参数
-                python.append("params = {\n");
-                for (Map.Entry<String, String> entry : parameters.entrySet()) {
-                    String value = entry.getValue();
-                    if (value.matches("\\d+(\\.\\d+)?")) {
-                        // 数字不需要引号
-                        python.append("    \"").append(entry.getKey()).append("\": ")
-                              .append(value).append(",\n");
-                    } else if (value.equals("true") || value.equals("false")) {
-                        // 布尔值不需要引号，且Python使用首字母大写
-                        python.append("    \"").append(entry.getKey()).append("\": ")
-                              .append(value.substring(0, 1).toUpperCase() + value.substring(1)).append(",\n");
-                    } else {
-                        python.append("    \"").append(entry.getKey()).append("\": \"")
-                              .append(value).append("\",\n");
-                    }
-                }
-                python.append("}\n");
-                
+                // 无论GET还是其他方法，都使用统一的参数传递方式
                 if (requestMethod.equals("GET")) {
-                    python.append("response = requests.get(url, params=params, headers=headers)\n");
+                    python.append("response = requests.get(url, params=data, headers=headers)\n");
                 } else {
                     python.append("response = requests.").append(requestMethod.toLowerCase())
-                          .append("(url, data=params, headers=headers)\n");
+                          .append("(url, data=data, headers=headers)\n");
                 }
             }
         } else {
