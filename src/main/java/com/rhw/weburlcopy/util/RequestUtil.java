@@ -238,6 +238,7 @@ public class RequestUtil {
         
         PsiParameter[] params = method.getParameterList().getParameters();
         boolean hasJsonParam = false;
+        boolean hasComplexObjectParam = false;
         
         for (PsiParameter param : params) {
             PsiType type = param.getType();
@@ -249,11 +250,20 @@ public class RequestUtil {
                     parameters.put("body", generateJsonForType(type));
                     hasJsonParam = true;
                 } else {
-                    // 对于未标记为@RequestBody但也不是基本类型的参数，视为JSON类型
+                    // 对于未标记为@RequestBody但也不是基本类型的参数，视为复杂对象
                     String complexTypeName = type.getPresentableText();
                     if (!complexTypeName.startsWith("java.") && !type.equals(PsiType.VOID)) {
-                        parameters.put(param.getName(), generateJsonForType(type));
-                        hasJsonParam = true;
+                        // 查看是否有特殊注解，如@RequestParam
+                        if (hasRequestParamAnnotation(param)) {
+                            // 将对象拆分为多个参数
+                            Map<String, String> objectParams = extractObjectParameters(type);
+                            parameters.putAll(objectParams);
+                        } else {
+                            // 默认作为JSON处理
+                            parameters.put(param.getName(), generateJsonForType(type));
+                            hasJsonParam = true;
+                        }
+                        hasComplexObjectParam = true;
                     }
                 }
             } else {
@@ -267,6 +277,11 @@ public class RequestUtil {
         // 设置标记，表示包含JSON参数
         if (hasJsonParam) {
             parameters.put("_hasJsonParam", "true");
+        }
+        
+        // 设置标记，表示包含复杂对象参数但不是JSON
+        if (hasComplexObjectParam && !hasJsonParam) {
+            parameters.put("_hasComplexObjectParam", "true");
         }
         
         return parameters;
@@ -380,6 +395,59 @@ public class RequestUtil {
     }
 
     /**
+     * 检查参数是否有@RequestParam注解
+     */
+    private static boolean hasRequestParamAnnotation(PsiParameter param) {
+        PsiAnnotation[] annotations = param.getAnnotations();
+        for (PsiAnnotation annotation : annotations) {
+            String name = annotation.getQualifiedName();
+            if (name != null && name.endsWith("RequestParam")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 从复杂对象提取参数
+     */
+    private static Map<String, String> extractObjectParameters(PsiType type) {
+        Map<String, String> result = new HashMap<>();
+        if (!(type instanceof PsiClassType)) {
+            return result;
+        }
+        
+        PsiClass psiClass = ((PsiClassType) type).resolve();
+        if (psiClass == null) {
+            return result;
+        }
+        
+        // 获取所有字段并创建参数
+        PsiField[] fields = psiClass.getAllFields();
+        for (PsiField field : fields) {
+            if (field.hasModifierProperty(PsiModifier.STATIC) || 
+                field.hasModifierProperty(PsiModifier.TRANSIENT)) {
+                continue;
+            }
+            
+            String fieldName = field.getName();
+            PsiType fieldType = field.getType();
+            
+            if (isPrimitiveOrString(fieldType)) {
+                result.put(fieldName, getDefaultValueForType(fieldType));
+            } else {
+                // 如果是嵌套对象，递归处理
+                Map<String, String> nestedParams = extractObjectParameters(fieldType);
+                for (Map.Entry<String, String> entry : nestedParams.entrySet()) {
+                    result.put(fieldName + "." + entry.getKey(), entry.getValue());
+                }
+            }
+        }
+        
+        return result;
+    }
+
+    /**
      * 生成curl命令
      */
     public static String generateCurlCommand(Project project, PsiMethod method) {
@@ -398,9 +466,18 @@ public class RequestUtil {
         }
         parameters.remove("_hasJsonParam"); // 移除标记
         
+        // 如果有复杂对象参数但不是JSON，也使用POST方法
+        boolean hasComplexObjectParam = parameters.containsKey("_hasComplexObjectParam");
+        if (hasComplexObjectParam) {
+            requestMethod = "POST";
+        }
+        parameters.remove("_hasComplexObjectParam"); // 移除标记
+        
         ConfigSettings settings = ConfigSettings.getInstance(project);
-        String host = settings.getHost();
-        String contextPath = settings.getContextPath();
+        
+        // 应用默认参数
+        parameters = settings.applyDefaultParameters(parameters);
+        
         Map<String, String> headers = settings.getHeaders();
         
         StringBuilder curl = new StringBuilder();
@@ -411,7 +488,7 @@ public class RequestUtil {
             curl.append("-H \"").append(entry.getKey()).append(": ").append(entry.getValue()).append("\" ");
         }
         
-        // 构建URL
+        // 构建URL，确保双引号位置正确
         curl.append("\"");
         // 使用完整URL前缀，包含协议、主机和上下文路径
         curl.append(settings.getFullUrlPrefix());
@@ -436,6 +513,7 @@ public class RequestUtil {
                 curl.append(entry.getKey()).append("=").append(entry.getValue());
                 first = false;
             }
+            curl.append("\"");
         } else if (parameters.containsKey("body")) {
             // 处理RequestBody
             curl.append("\" -H \"Content-Type: application/json\" ");
@@ -508,9 +586,18 @@ public class RequestUtil {
         }
         parameters.remove("_hasJsonParam"); // 移除标记
         
+        // 如果有复杂对象参数但不是JSON，也使用POST方法
+        boolean hasComplexObjectParam = parameters.containsKey("_hasComplexObjectParam");
+        if (hasComplexObjectParam) {
+            requestMethod = "POST";
+        }
+        parameters.remove("_hasComplexObjectParam"); // 移除标记
+        
         ConfigSettings settings = ConfigSettings.getInstance(project);
-        String host = settings.getHost();
-        String contextPath = settings.getContextPath();
+        
+        // 应用默认参数
+        parameters = settings.applyDefaultParameters(parameters);
+        
         Map<String, String> headers = settings.getHeaders();
         
         StringBuilder python = new StringBuilder();
@@ -574,6 +661,29 @@ public class RequestUtil {
                 python.append("}\n");
                 python.append("response = requests.").append(requestMethod.toLowerCase())
                       .append("(url, json=json_data, headers=headers)\n");
+            } else if (hasComplexObjectParam) {
+                // 处理表单格式的复杂对象参数
+                python.append("data = {\n");
+                for (Map.Entry<String, String> entry : parameters.entrySet()) {
+                    String value = entry.getValue();
+                    if (value.matches("\\d+(\\.\\d+)?")) {
+                        // 数字不需要引号
+                        python.append("    \"").append(entry.getKey()).append("\": ")
+                              .append(value).append(",\n");
+                    } else if (value.equals("true") || value.equals("false")) {
+                        // 布尔值不需要引号，且Python使用首字母大写
+                        python.append("    \"").append(entry.getKey()).append("\": ")
+                              .append(value.substring(0, 1).toUpperCase() + value.substring(1)).append(",\n");
+                    } else {
+                        python.append("    \"").append(entry.getKey()).append("\": \"")
+                              .append(value).append("\",\n");
+                    }
+                }
+                python.append("}\n");
+                
+                // 使用data参数而不是params
+                python.append("response = requests.").append(requestMethod.toLowerCase())
+                      .append("(url, data=data, headers=headers)\n");
             } else {
                 // 处理常规参数
                 python.append("params = {\n");

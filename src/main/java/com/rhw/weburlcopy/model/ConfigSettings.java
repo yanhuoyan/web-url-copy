@@ -24,6 +24,7 @@ public class ConfigSettings implements PersistentStateComponent<ConfigSettings> 
     private String contextPath = "";
     private String protocol = "http";
     private Map<String, String> headers = new HashMap<>();
+    private Map<String, String> defaultParameters = new HashMap<>();
 
     public static ConfigSettings getInstance(Project project) {
         return project.getService(ConfigSettings.class);
@@ -118,5 +119,49 @@ public class ConfigSettings implements PersistentStateComponent<ConfigSettings> 
 
     public void removeHeader(String key) {
         this.headers.remove(key);
+    }
+    
+    public Map<String, String> getDefaultParameters() {
+        return defaultParameters;
+    }
+    
+    public void setDefaultParameters(Map<String, String> defaultParameters) {
+        this.defaultParameters = defaultParameters;
+    }
+    
+    public void addDefaultParameter(String key, String value) {
+        this.defaultParameters.put(key, value);
+    }
+    
+    public void removeDefaultParameter(String key) {
+        this.defaultParameters.remove(key);
+    }
+    
+    /**
+     * 获取参数的默认值（如果配置了）
+     * @param paramName 参数名
+     * @return 默认值，如果没有配置则返回null
+     */
+    public String getDefaultParameterValue(String paramName) {
+        return defaultParameters.get(paramName);
+    }
+    
+    /**
+     * 应用默认参数值到参数映射
+     * @param parameters 原始参数映射
+     * @return 应用默认值后的参数映射
+     */
+    public Map<String, String> applyDefaultParameters(Map<String, String> parameters) {
+        Map<String, String> result = new HashMap<>(parameters);
+        
+        // 对每个参数，检查是否有默认值并应用
+        for (String paramName : parameters.keySet()) {
+            if (defaultParameters.containsKey(paramName)) {
+                // 用默认值替换原始值
+                result.put(paramName, defaultParameters.get(paramName));
+            }
+        }
+        
+        return result;
     }
 }
