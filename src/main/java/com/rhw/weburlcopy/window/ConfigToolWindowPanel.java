@@ -28,6 +28,7 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
     private final Project project;
     private JBTextField hostField;
     private JBTextField contextPathField;
+    private JComboBox<String> protocolComboBox;
     private DefaultTableModel tableModel;
     private JTable headersTable;
     private JBTextField headerKeyField;
@@ -85,29 +86,49 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         innerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         GridBagConstraints c = new GridBagConstraints();
         
-        // 主机地址标签
+        // 协议选择框
         c.gridx = 0;
         c.gridy = 0;
         c.gridwidth = 1;
         c.anchor = GridBagConstraints.WEST;
         c.insets = JBUI.insets(5, 0, 5, 10);
+        JBLabel protocolLabel = new JBLabel("协议:");
+        innerPanel.add(protocolLabel, c);
+        
+        c.gridx = 1;
+        c.gridy = 0;
+        c.gridwidth = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 0.3;
+        protocolComboBox = new JComboBox<>(new String[]{"http", "https"});
+        protocolComboBox.setToolTipText("选择HTTP或HTTPS协议");
+        innerPanel.add(protocolComboBox, c);
+        
+        // 主机地址标签
+        c.gridx = 0;
+        c.gridy = 1;
+        c.gridwidth = 1;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
+        c.anchor = GridBagConstraints.WEST;
+        c.insets = JBUI.insets(5, 0, 5, 10);
         JBLabel hostLabel = new JBLabel("主机地址:");
-        hostLabel.setToolTipText("例如: https://api.example.com");
+        hostLabel.setToolTipText("例如: api.example.com");
         innerPanel.add(hostLabel, c);
         
         // 主机地址输入框
         c.gridx = 1;
-        c.gridy = 0;
+        c.gridy = 1;
         c.gridwidth = 2;
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 1.0;
         hostField = new JBTextField();
-        hostField.setToolTipText("请输入完整的主机地址，例如: https://api.example.com");
+        hostField.setToolTipText("请输入主机地址，例如: api.example.com（无需协议前缀）");
         innerPanel.add(hostField, c);
         
         // 上下文路径标签
         c.gridx = 0;
-        c.gridy = 1;
+        c.gridy = 2;
         c.gridwidth = 1;
         c.weightx = 0;
         c.fill = GridBagConstraints.NONE;
@@ -117,7 +138,7 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         
         // 上下文路径输入框
         c.gridx = 1;
-        c.gridy = 1;
+        c.gridy = 2;
         c.gridwidth = 2;
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 1.0;
@@ -125,9 +146,59 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         contextPathField.setToolTipText("请输入API的上下文路径，例如: /api/v1");
         innerPanel.add(contextPathField, c);
         
+        // URL预览标签
+        c.gridx = 0;
+        c.gridy = 3;
+        c.gridwidth = 1;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
+        JBLabel previewLabel = new JBLabel("URL预览:");
+        innerPanel.add(previewLabel, c);
+        
+        // URL预览内容
+        c.gridx = 1;
+        c.gridy = 3;
+        c.gridwidth = 2;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 1.0;
+        JLabel urlPreviewLabel = new JLabel("http://localhost");
+        urlPreviewLabel.setForeground(UIUtil.getContextHelpForeground());
+        innerPanel.add(urlPreviewLabel, c);
+        
+        // 添加URL预览更新监听器
+        protocolComboBox.addActionListener(e -> updateUrlPreview(urlPreviewLabel));
+        hostField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                updateUrlPreview(urlPreviewLabel);
+            }
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                updateUrlPreview(urlPreviewLabel);
+            }
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                updateUrlPreview(urlPreviewLabel);
+            }
+        });
+        contextPathField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                updateUrlPreview(urlPreviewLabel);
+            }
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                updateUrlPreview(urlPreviewLabel);
+            }
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                updateUrlPreview(urlPreviewLabel);
+            }
+        });
+        
         // 保存按钮
         c.gridx = 2;
-        c.gridy = 2;
+        c.gridy = 4;
         c.gridwidth = 1;
         c.weightx = 0;
         c.fill = GridBagConstraints.NONE;
@@ -139,6 +210,24 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         
         panel.add(innerPanel, BorderLayout.CENTER);
         return panel;
+    }
+    
+    private void updateUrlPreview(JLabel previewLabel) {
+        String protocol = (String) protocolComboBox.getSelectedItem();
+        String host = hostField.getText().trim();
+        String contextPath = contextPathField.getText().trim();
+        
+        StringBuilder preview = new StringBuilder();
+        preview.append(protocol).append("://").append(host);
+        
+        if (!contextPath.isEmpty()) {
+            if (!contextPath.startsWith("/")) {
+                preview.append("/");
+            }
+            preview.append(contextPath);
+        }
+        
+        previewLabel.setText(preview.toString());
     }
     
     private JPanel createHeadersPanel() {
@@ -274,6 +363,7 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         ConfigSettings settings = ConfigSettings.getInstance(project);
         
         // 设置URL相关字段
+        protocolComboBox.setSelectedItem(settings.getProtocol());
         hostField.setText(settings.getHost());
         contextPathField.setText(settings.getContextPath());
         
@@ -288,6 +378,7 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
 
     private void saveUrlConfig() {
         ConfigSettings settings = ConfigSettings.getInstance(project);
+        settings.setProtocol((String) protocolComboBox.getSelectedItem());
         settings.setHost(hostField.getText().trim());
         settings.setContextPath(contextPathField.getText().trim());
         Messages.showInfoMessage("URL配置已保存", "保存成功");

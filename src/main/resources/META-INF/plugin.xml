@@ -31,13 +31,11 @@
     </extensions>
 
     <actions>
-        <group id="WebCopyUrlActionGroup" text="Web Copy URL" description="Web Copy URL actions">
+        <!-- 主菜单项 -->
+        <action id="WebCopyUrl" class="com.rhw.weburlcopy.action.WebCopyUrlActionGroup" text="Web Copy URL"
+               description="Copy web URL for current method or class">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
-            <action id="CopyBashCurl" class="com.rhw.weburlcopy.action.CopyBashCurlAction" text="Copy Bash Curl"
-                    description="Copy Bash Curl command for current method or class"/>
-            <action id="CopyPythonRequest" class="com.rhw.weburlcopy.action.CopyPythonRequestAction" text="Copy Python Request"
-                    description="Copy Python Request code for current method or class"/>
-        </group>
+        </action>
     </actions>
 </idea-plugin>

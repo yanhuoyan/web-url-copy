@@ -22,6 +22,7 @@ public class ConfigSettings implements PersistentStateComponent<ConfigSettings> 
 
     private String host = "localhost";
     private String contextPath = "";
+    private String protocol = "http";
     private Map<String, String> headers = new HashMap<>();
 
     public static ConfigSettings getInstance(Project project) {
@@ -44,6 +45,14 @@ public class ConfigSettings implements PersistentStateComponent<ConfigSettings> 
     }
 
     public void setHost(String host) {
+        // 移除任何协议前缀，因为这将单独存储
+        if (host != null) {
+            if (host.startsWith("http://")) {
+                host = host.substring(7);
+            } else if (host.startsWith("https://")) {
+                host = host.substring(8);
+            }
+        }
         this.host = host;
     }
 
@@ -66,6 +75,33 @@ public class ConfigSettings implements PersistentStateComponent<ConfigSettings> 
             path = path.substring(0, path.length() - 1);
         }
         this.contextPath = path;
+    }
+    
+    public String getProtocol() {
+        return protocol;
+    }
+    
+    public void setProtocol(String protocol) {
+        // 确保协议是http或https
+        if ("https".equalsIgnoreCase(protocol)) {
+            this.protocol = "https";
+        } else {
+            this.protocol = "http";
+        }
+    }
+    
+    /**
+     * 获取完整URL前缀（协议+主机+上下文路径）
+     */
+    public String getFullUrlPrefix() {
+        StringBuilder urlBuilder = new StringBuilder();
+        urlBuilder.append(protocol).append("://").append(host);
+        
+        if (!contextPath.isEmpty()) {
+            urlBuilder.append(contextPath);
+        }
+        
+        return urlBuilder.toString();
     }
 
     public Map<String, String> getHeaders() {
