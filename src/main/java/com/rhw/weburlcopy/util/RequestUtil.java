@@ -263,7 +263,11 @@ public class RequestUtil {
                 }
             } else {
                 // 处理基本类型和String
-                String paramName = param.getName();
+                // 首先尝试从@RequestParam注解中获取参数名
+                String paramName = getRequestParamValue(param);
+                if (paramName == null) {
+                    paramName = param.getName(); // 如果没有注解或注解没有value值，使用参数原名
+                }
                 String defaultValue = getDefaultValueForType(type);
                 parameters.put(paramName, defaultValue);
             }
@@ -280,6 +284,43 @@ public class RequestUtil {
         }
         
         return parameters;
+    }
+
+    /**
+     * 从@RequestParam注解中获取value值
+     * 
+     * @param param 参数对象
+     * @return 注解中指定的参数名，如果没有则返回null
+     */
+    private static String getRequestParamValue(PsiParameter param) {
+        PsiAnnotation[] annotations = param.getAnnotations();
+        for (PsiAnnotation annotation : annotations) {
+            String name = annotation.getQualifiedName();
+            if (name != null && name.endsWith("RequestParam")) {
+                // 从注解中获取value属性或name属性
+                PsiNameValuePair[] attributes = annotation.getParameterList().getAttributes();
+                for (PsiNameValuePair attribute : attributes) {
+                    String attrName = attribute.getName();
+                    // value和name属性都可以指定参数名
+                    if ("value".equals(attrName) || "name".equals(attrName) || attrName == null) {
+                        String literalValue = attribute.getLiteralValue();
+                        if (literalValue != null && !literalValue.isEmpty()) {
+                            return literalValue;
+                        }
+                        
+                        // 处理可能的复杂表达式
+                        PsiElement valueElement = attribute.getValue();
+                        if (valueElement != null) {
+                            String text = valueElement.getText();
+                            if (text != null && text.startsWith("\"") && text.endsWith("\"") && text.length() >= 2) {
+                                return text.substring(1, text.length() - 1);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     /**
