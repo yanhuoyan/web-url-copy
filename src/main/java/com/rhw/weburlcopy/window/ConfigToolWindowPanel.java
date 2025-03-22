@@ -17,6 +17,8 @@ import com.rhw.weburlcopy.model.UrlConfig;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
+import javax.swing.plaf.basic.BasicSplitPaneDivider;
+import javax.swing.plaf.basic.BasicSplitPaneUI;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
@@ -71,20 +73,52 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         setLayout(new BorderLayout());
         setBorder(JBUI.Borders.empty(15));
         
-        JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        // 创建垂直分割面板 - 上下两部分
+        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+        splitPane.setBorder(BorderFactory.createEmptyBorder());
+        splitPane.setDividerSize(5);
         
-        // 创建标题
-        JLabel titleLabel = new JLabel("请求配置", AllIcons.General.Settings, SwingConstants.LEFT);
-        titleLabel.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD, 16f));
-        titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
+        // 设置分隔线颜色为深灰色
+        splitPane.setUI(new BasicSplitPaneUI() {
+            @Override
+            public BasicSplitPaneDivider createDefaultDivider() {
+                return new BasicSplitPaneDivider(this) {
+                    @Override
+                    public void paint(Graphics g) {
+                        g.setColor(new Color(80, 80, 80));
+                        g.fillRect(0, 0, getSize().width, getSize().height);
+                    }
+                };
+            }
+        });
+        
+        // 上半部分 - 环境配置
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.setBorder(JBUI.Borders.empty(0, 0, 5, 0));
+        
+        // 创建环境配置部分标题
+        JLabel envTitleLabel = new JLabel("环境配置", AllIcons.Nodes.ConfigFolder, SwingConstants.LEFT);
+        envTitleLabel.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD, 16f));
+        envTitleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
         
         // URL配置部分
         JPanel urlConfigPanel = createUrlConfigPanel();
         
+        // 将标题和配置面板添加到上半部分
+        topPanel.add(envTitleLabel, BorderLayout.NORTH);
+        topPanel.add(urlConfigPanel, BorderLayout.CENTER);
+        
+        // 下半部分 - 请求头和默认参数
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.setBorder(JBUI.Borders.empty(5, 0, 0, 0));
+        
+        // 创建请求配置部分标题
+        JLabel reqTitleLabel = new JLabel("请求配置", AllIcons.General.Settings, SwingConstants.LEFT);
+        reqTitleLabel.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD, 16f));
+        reqTitleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+        
         // 创建选项卡面板
         JBTabbedPane tabbedPane = new JBTabbedPane();
-        tabbedPane.setBorder(JBUI.Borders.empty(10, 0, 0, 0));
         
         // 请求头选项卡
         JPanel headersPanel = createHeadersPanel();
@@ -94,19 +128,25 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         JPanel paramsPanel = createDefaultParamsPanel();
         tabbedPane.addTab("默认参数", AllIcons.Nodes.Parameter, paramsPanel, "配置请求参数的默认值");
         
-        // 布局组件
-        FormBuilder formBuilder = FormBuilder.createFormBuilder()
-                .addComponent(titleLabel)
-                .addComponentFillVertically(new JPanel(), 5)
-                .addComponent(urlConfigPanel)
-                .addComponentFillVertically(new JPanel(), 10)
-                .addComponentFillVertically(tabbedPane, 0);
-                
-        mainPanel.add(formBuilder.getPanel(), BorderLayout.CENTER);
-        add(mainPanel, BorderLayout.CENTER);
+        // 将标题和选项卡面板添加到下半部分
+        bottomPanel.add(reqTitleLabel, BorderLayout.NORTH);
+        bottomPanel.add(tabbedPane, BorderLayout.CENTER);
+        
+        // 添加面板到分割面板
+        splitPane.setTopComponent(topPanel);
+        splitPane.setBottomComponent(bottomPanel);
+        splitPane.setResizeWeight(0.5); // 平均分配空间
+        
+        // 添加到主面板
+        add(splitPane, BorderLayout.CENTER);
         
         // 加载配置
         loadSettings();
+        
+        // 设置分割面板初始位置
+        SwingUtilities.invokeLater(() -> {
+            splitPane.setDividerLocation(0.5);
+        });
     }
     
     /**
@@ -574,12 +614,7 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
      */
     private JPanel createHeadersPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-        
-        // 添加标题
-        JLabel panelTitle = new JLabel("HTTP请求头配置", AllIcons.General.Settings, SwingConstants.LEFT);
-        panelTitle.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD, 14f));
-        panelTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+        panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
         
         // 创建表格模型
         String[] columnNames = {"Header", "Value"};
@@ -637,7 +672,6 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         
         // 组合布局
         JPanel contentPanel = new JPanel(new BorderLayout());
-        contentPanel.add(panelTitle, BorderLayout.NORTH);
         contentPanel.add(scrollPane, BorderLayout.CENTER);
         contentPanel.add(buttonPanel, BorderLayout.SOUTH);
         
@@ -653,12 +687,7 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
      */
     private JPanel createDefaultParamsPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-        
-        // 添加标题
-        JLabel panelTitle = new JLabel("默认参数配置", AllIcons.Nodes.Parameter, SwingConstants.LEFT);
-        panelTitle.setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD, 14f));
-        panelTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+        panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
         
         // 创建表格模型
         String[] columnNames = {"参数名", "默认值"};
@@ -716,7 +745,6 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         
         // 组合布局
         JPanel contentPanel = new JPanel(new BorderLayout());
-        contentPanel.add(panelTitle, BorderLayout.NORTH);
         contentPanel.add(scrollPane, BorderLayout.CENTER);
         contentPanel.add(buttonPanel, BorderLayout.SOUTH);
         
@@ -982,32 +1010,31 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
      * @return URL预览标签组件
      */
     private JLabel findUrlPreviewLabel() {
-        // 查找面板中的URL预览标签
-        Component[] components = ((JPanel) getComponent(0)).getComponents();
-        for (Component component : components) {
-            if (component instanceof JPanel) {
-                Component[] subComponents = ((JPanel) component).getComponents();
-                for (Component subComponent : subComponents) {
-                    if (subComponent instanceof JPanel && ((JPanel) subComponent).getBorder() instanceof TitledBorder) {
-                        Component[] panelComponents = ((JPanel) subComponent).getComponents();
-                        for (Component panelComponent : panelComponents) {
-                            if (panelComponent instanceof JPanel && 
-                                ((JPanel) panelComponent).getLayout() instanceof BorderLayout) {
-                                Component southComponent = ((BorderLayout)((JPanel) panelComponent).getLayout())
-                                        .getLayoutComponent(BorderLayout.SOUTH);
-                                if (southComponent instanceof JPanel) {
-                                    Component[] previewComponents = ((JPanel) southComponent).getComponents();
-                                    for (Component previewComponent : previewComponents) {
-                                        if (previewComponent instanceof JPanel) {
-                                            Component[] labels = ((JPanel) previewComponent).getComponents();
-                                            for (int i = 0; i < labels.length; i++) {
-                                                if (labels[i] instanceof JLabel && 
-                                                    ((JLabel) labels[i]).getText().equals("URL预览:") &&
-                                                    i + 1 < labels.length &&
-                                                    labels[i + 1] instanceof JLabel) {
-                                                    return (JLabel) labels[i + 1];
-                                                }
-                                            }
+        // 在JSplitPane的顶部组件中查找URL预览标签
+        Component splitPane = getComponent(0);
+        if (splitPane instanceof JSplitPane) {
+            Component topComponent = ((JSplitPane) splitPane).getTopComponent();
+            if (topComponent instanceof JPanel) {
+                // 获取环境配置面板
+                Component[] topComponents = ((JPanel) topComponent).getComponents();
+                for (Component component : topComponents) {
+                    // 查找URL配置面板
+                    if (component instanceof JPanel && ((JPanel) component).getBorder() != null) {
+                        // 查找URL配置面板中的预览区域
+                        JPanel urlConfigPanel = (JPanel) component;
+                        Component southComponent = ((BorderLayout) urlConfigPanel.getLayout()).getLayoutComponent(BorderLayout.SOUTH);
+                        if (southComponent instanceof JPanel) {
+                            Component[] previewComponents = ((JPanel) southComponent).getComponents();
+                            for (Component previewComponent : previewComponents) {
+                                if (previewComponent instanceof JPanel) {
+                                    // 查找URL预览标签
+                                    Component[] labels = ((JPanel) previewComponent).getComponents();
+                                    for (int i = 0; i < labels.length; i++) {
+                                        if (labels[i] instanceof JLabel && 
+                                            "URL预览:".equals(((JLabel) labels[i]).getText()) &&
+                                            i + 1 < labels.length &&
+                                            labels[i + 1] instanceof JLabel) {
+                                            return (JLabel) labels[i + 1];
                                         }
                                     }
                                 }
