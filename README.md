@@ -1,57 +1,100 @@
 # Web URL Copy
 
-IntelliJ IDEA插件，帮助开发者快速生成当前Java方法的HTTP请求并复制到剪贴板。
+An IntelliJ IDEA plugin that helps developers quickly generate HTTP requests from Java methods and copy them to the clipboard.
 
-## 2024.3.5 版本适配说明
+[简体中文](README.zh.md) | English
 
-针对 IntelliJ IDEA 2024.3.5 版本中出现的内存泄漏问题，本次更新做了如下修改：
+## Version 2024.3.5 Update Notes
 
-1. 新增 `DisposerUtil` 工具类，用于正确处理 Disposable 对象
-2. 修改 `ConfigToolWindowPanel` 类，使其实现 Disposable 接口并正确处理资源释放
+To address memory leak issues in IntelliJ IDEA 2024.3.5, the following changes have been made:
 
-## 功能特点
+1. Added `DisposerUtil` utility class for proper handling of Disposable objects
+2. Modified `ConfigToolWindowPanel` class to implement Disposable interface and correctly manage resource disposal
 
-- 支持从右键菜单复制 Bash Curl 命令
-- 支持从右键菜单复制 Python Request 代码
-- 支持配置主机地址和请求头
-- 支持 Spring MVC 和 JAX-RS 风格的 API
+## Features
 
-## 使用方法
+- **Bash Curl Commands**: Generate and copy curl commands directly from your Java controller methods
+- **Python Requests Code**: Generate and copy Python requests code with proper formatting
+- **Multiple API Styles Support**: Works with both Spring MVC and JAX-RS style APIs
+- **Custom Host Configuration**: Set default host addresses for your environments (dev, test, prod)
+- **Request Headers Management**: Add, edit, and delete custom HTTP headers for your requests
+- **Method Parameter Handling**: Automatically detects and includes path variables, query parameters, and request body
+- **HTTP Method Recognition**: Automatically recognizes GET, POST, PUT, DELETE and other HTTP methods from annotations
+- **Context-Aware Menu**: Right-click menu options are only shown for compatible Java methods
+- **Clipboard Integration**: One-click copying of generated requests
 
-1. 在编辑器中打开一个Spring MVC或JAX-RS控制器类
-2. 右键点击方法名或类名
-3. 在上下文菜单中选择"Web Copy URL" > "Copy Bash Curl"或"Copy Python Request"
-4. 请求代码会被复制到剪贴板
-5. 通过IDE右侧的"Web URL Config"工具窗口可以配置请求地址和头信息
+## How to Use
 
-## 配置
+1. Open a Spring MVC or JAX-RS controller class in the editor
+2. Right-click on a method name or class name
+3. Select "Web Copy URL" > "Copy Bash Curl" or "Copy Python Request" from the context menu
+4. The request code will be copied to your clipboard
+5. Configure request addresses and headers through the "Web URL Config" tool window on the right side of the IDE
 
-通过IDE右侧的"Web URL Config"工具窗口可以：
+## Configuration
 
-- 设置默认主机地址
-- 添加/删除自定义请求头
+Through the "Web URL Config" tool window on the right side of the IDE, you can:
 
-## 支持的框架
+- Set default host addresses for different environments
+- Add/remove/edit custom request headers
+- Configure default content types for requests
+- Set authentication tokens or credentials if needed
 
-- Spring MVC (@RestController, @Controller, @RequestMapping, @GetMapping等)
-- JAX-RS (javax.ws.rs.Path, @GET, @POST等)
+## Supported Frameworks
 
-## 构建项目
+- **Spring MVC**: Supports @RestController, @Controller, @RequestMapping, @GetMapping, @PostMapping, @PutMapping, @DeleteMapping annotations
+- **JAX-RS**: Supports javax.ws.rs.Path, @GET, @POST, @PUT, @DELETE annotations and path parameters
+
+## Example Generated Output
+
+### Curl Command Example
+```bash
+curl -X POST 'http://localhost:8080/api/users' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer token' \
+  -d '{
+    "name": "John Doe",
+    "email": "john@example.com"
+  }'
+```
+
+### Python Request Example
+```python
+import requests
+import json
+
+url = "http://localhost:8080/api/users"
+
+payload = json.dumps({
+  "name": "John Doe",
+  "email": "john@example.com"
+})
+
+headers = {
+  'Content-Type': 'application/json',
+  'Authorization': 'Bearer token'
+}
+
+response = requests.post(url, headers=headers, data=payload)
+print(response.text)
+```
+
+## Building from Source
 
 ```bash
 ./gradlew buildPlugin
 ```
 
-## 安装插件
+## Installation
 
-- 通过本地安装: 下载最新的发布版本或自行构建，然后在IntelliJ IDEA中从磁盘安装插件
-- 通过插件市场搜索"Web URL Copy"进行安装
+- **Local Installation**: Download the latest release or build it yourself, then install the plugin from disk in IntelliJ IDEA
+- **Plugin Marketplace**: Search for "Web URL Copy" in the IntelliJ IDEA plugin marketplace
 
-## 开发环境要求
+## Development Requirements
 
 - Java 17+
 - IntelliJ IDEA (2022.2 - 2024.3.5)
 
-## 许可证
+## License
 
 [MIT License](LICENSE)
