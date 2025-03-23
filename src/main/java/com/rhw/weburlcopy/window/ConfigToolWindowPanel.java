@@ -1,6 +1,7 @@
 package com.rhw.weburlcopy.window;
 
 import com.intellij.icons.AllIcons;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.ui.components.JBLabel;
@@ -14,6 +15,7 @@ import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UIUtil;
 import com.rhw.weburlcopy.model.ConfigSettings;
 import com.rhw.weburlcopy.model.UrlConfig;
+import com.rhw.weburlcopy.util.DisposerUtil;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -37,7 +39,7 @@ import java.util.List;
  * @author renhao.wang
  * @since 2023-03-22
  */
-public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
+public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> implements Disposable {
     private final Project project;
     
     // URL配置列表
@@ -1207,5 +1209,11 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
             }
         }
         return null;
+    }
+    
+    @Override
+    public void dispose() {
+        // 清理所有资源
+        removeAll();
     }
 }

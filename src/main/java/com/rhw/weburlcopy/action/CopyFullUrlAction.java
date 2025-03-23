@@ -2,6 +2,7 @@ package com.rhw.weburlcopy.action;
 
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.ide.CopyPasteManager;
 import com.intellij.openapi.project.Project;
@@ -23,6 +24,11 @@ import java.util.List;
  * @since 2023-03-22
  */
 public class CopyFullUrlAction extends AnAction {
+
+    @Override
+    public @NotNull ActionUpdateThread getActionUpdateThread() {
+        return ActionUpdateThread.EDT;
+    }
 
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
@@ -70,19 +76,12 @@ public class CopyFullUrlAction extends AnAction {
 
     @Override
     public void update(@NotNull AnActionEvent e) {
-        Project project = e.getProject();
-        PsiElement element = e.getData(CommonDataKeys.PSI_ELEMENT);
+        // 子菜单始终可见和可用，不再依赖PSI元素判断
+        e.getPresentation().setEnabled(true);
+        e.getPresentation().setVisible(true);
         
-        // 只有在选中了Java方法或类且是控制器或请求方法时才启用
-        boolean enabled = false;
-        if (project != null && element != null) {
-            if (element instanceof PsiMethod) {
-                enabled = RequestUtil.isRequestMethod((PsiMethod) element);
-            } else if (element instanceof PsiClass) {
-                enabled = RequestUtil.isControllerClass((PsiClass) element);
-            }
-        }
-        
-        e.getPresentation().setEnabledAndVisible(enabled);
+        // 确保模板状态也是可用的
+        getTemplatePresentation().setEnabled(true);
+        getTemplatePresentation().setVisible(true);
     }
 } 

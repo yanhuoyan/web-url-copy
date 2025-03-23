@@ -2,6 +2,13 @@
 
 IntelliJ IDEA插件，帮助开发者快速生成当前Java方法的HTTP请求并复制到剪贴板。
 
+## 2024.3.5 版本适配说明
+
+针对 IntelliJ IDEA 2024.3.5 版本中出现的内存泄漏问题，本次更新做了如下修改：
+
+1. 新增 `DisposerUtil` 工具类，用于正确处理 Disposable 对象
+2. 修改 `ConfigToolWindowPanel` 类，使其实现 Disposable 接口并正确处理资源释放
+
 ## 功能特点
 
 - 支持从右键菜单复制 Bash Curl 命令
@@ -43,7 +50,7 @@ IntelliJ IDEA插件，帮助开发者快速生成当前Java方法的HTTP请求�
 ## 开发环境要求
 
 - Java 17+
-- IntelliJ IDEA (2022.2+)
+- IntelliJ IDEA (2022.2 - 2024.3.5)
 
 ## 许可证
 

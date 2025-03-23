@@ -2,6 +2,7 @@ package com.rhw.weburlcopy.action;
 
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiClass;
@@ -17,7 +18,11 @@ import org.jetbrains.annotations.NotNull;
 public class WebCopyUrlActionGroup extends DefaultActionGroup {
     
     public WebCopyUrlActionGroup() {
-        super("Web Copy URL", true); // 第二个参数设置popup为true，表示这是一个弹出菜单组
+        // 使用默认构造函数
+        super();
+        // 设置组ID和显示文本
+        getTemplatePresentation().setText("Web Copy URL");
+        // 确保这是一个弹出菜单组
         setPopup(true);
         
         // 添加子操作到菜单组
@@ -34,20 +39,18 @@ public class WebCopyUrlActionGroup extends DefaultActionGroup {
     }
 
     @Override
+    public @NotNull ActionUpdateThread getActionUpdateThread() {
+        return ActionUpdateThread.EDT;
+    }
+
+    @Override
     public void update(@NotNull AnActionEvent e) {
-        Project project = e.getProject();
-        PsiElement element = e.getData(CommonDataKeys.PSI_ELEMENT);
+        // 菜单组始终可见和可用，不再依赖PSI元素判断
+        e.getPresentation().setEnabled(true);
+        e.getPresentation().setVisible(true);
         
-        // 只有在选中了Java方法或类且是控制器或请求方法时才启用
-        boolean enabled = false;
-        if (project != null && element != null) {
-            if (element instanceof PsiMethod) {
-                enabled = RequestUtil.isRequestMethod((PsiMethod) element);
-            } else if (element instanceof PsiClass) {
-                enabled = RequestUtil.isControllerClass((PsiClass) element);
-            }
-        }
-        
-        e.getPresentation().setEnabledAndVisible(enabled);
+        // 确保菜单显示
+        getTemplatePresentation().setEnabled(true);
+        getTemplatePresentation().setVisible(true);
     }
 } 

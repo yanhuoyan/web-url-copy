@@ -19,50 +19,107 @@ public class RequestUtil {
 
     /**
      * 判断是否为控制器类
+     * 
+     * @param psiClass 需要判断的类
+     * @return 如果是控制器类则返回true，否则返回false
      */
     public static boolean isControllerClass(PsiClass psiClass) {
         if (psiClass == null) {
             return false;
         }
-        PsiAnnotation[] annotations = psiClass.getAnnotations();
-        for (PsiAnnotation annotation : annotations) {
-            String qualifiedName = annotation.getQualifiedName();
-            if (qualifiedName != null && (
-                    qualifiedName.equals("org.springframework.web.bind.annotation.RestController") ||
-                    qualifiedName.equals("org.springframework.stereotype.Controller") ||
-                    qualifiedName.equals("javax.ws.rs.Path")
+        
+        try {
+            // 检查注解
+            PsiAnnotation[] annotations = psiClass.getAnnotations();
+            for (PsiAnnotation annotation : annotations) {
+                String qualifiedName = annotation.getQualifiedName();
+                if (qualifiedName != null && (
+                        qualifiedName.contains("Controller") || // 更宽松的匹配，包括各种Controller注解
+                        qualifiedName.contains("RestController") || 
+                        qualifiedName.contains("Path") // 支持JAX-RS的Path注解
+                )) {
+                    return true;
+                }
+            }
+            
+            // 检查类名是否包含Controller
+            String className = psiClass.getName();
+            if (className != null && (
+                    className.contains("Controller") || 
+                    className.contains("Resource") || 
+                    className.contains("Api") ||
+                    className.contains("Endpoint")
             )) {
                 return true;
             }
+            
+            // 检查父类和接口
+            PsiClass[] interfaces = psiClass.getInterfaces();
+            for (PsiClass anInterface : interfaces) {
+                String interfaceName = anInterface.getQualifiedName();
+                if (interfaceName != null && (
+                        interfaceName.contains("Controller") ||
+                        interfaceName.contains("Resource") ||
+                        interfaceName.contains("Api")
+                )) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            // 捕获任何异常，防止插件崩溃
+            return false;
         }
+        
         return false;
     }
 
     /**
      * 判断是否为请求处理方法
+     * 
+     * @param psiMethod 需要判断的方法
+     * @return 如果是请求处理方法则返回true，否则返回false
      */
     public static boolean isRequestMethod(PsiMethod psiMethod) {
         if (psiMethod == null) {
             return false;
         }
-        PsiAnnotation[] annotations = psiMethod.getAnnotations();
-        for (PsiAnnotation annotation : annotations) {
-            String qualifiedName = annotation.getQualifiedName();
-            if (qualifiedName != null && (
-                    qualifiedName.contains("RequestMapping") ||
-                    qualifiedName.contains("GetMapping") ||
-                    qualifiedName.contains("PostMapping") ||
-                    qualifiedName.contains("PutMapping") ||
-                    qualifiedName.contains("DeleteMapping") ||
-                    qualifiedName.contains("PatchMapping") ||
-                    qualifiedName.equals("javax.ws.rs.GET") ||
-                    qualifiedName.equals("javax.ws.rs.POST") ||
-                    qualifiedName.equals("javax.ws.rs.PUT") ||
-                    qualifiedName.equals("javax.ws.rs.DELETE")
-            )) {
-                return true;
+        
+        try {
+            // 首先检查所在类是否为控制器
+            PsiClass containingClass = psiMethod.getContainingClass();
+            if (containingClass != null && isControllerClass(containingClass)) {
+                // 检查方法注解
+                PsiAnnotation[] annotations = psiMethod.getAnnotations();
+                if (annotations.length == 0) {
+                    // 如果方法没有注解但所在类是控制器，也认为是API方法
+                    return true;
+                }
+                
+                for (PsiAnnotation annotation : annotations) {
+                    String qualifiedName = annotation.getQualifiedName();
+                    if (qualifiedName != null && (
+                            qualifiedName.contains("Mapping") || // 匹配各种Mapping注解
+                            qualifiedName.contains("GET") ||
+                            qualifiedName.contains("POST") ||
+                            qualifiedName.contains("PUT") ||
+                            qualifiedName.contains("DELETE") ||
+                            qualifiedName.contains("PATCH") ||
+                            qualifiedName.contains("Path") // JAX-RS Path注解
+                    )) {
+                        return true;
+                    }
+                }
+                
+                // 没有特定的注解，但方法是公开的，也视为API
+                if (psiMethod.hasModifierProperty(PsiModifier.PUBLIC)) {
+                    return true;
+                }
             }
+        } catch (Exception e) {
+            // 捕获任何异常，防止插件崩溃
+            return false;
         }
+        
         return false;
     }
 

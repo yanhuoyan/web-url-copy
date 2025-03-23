@@ -16,12 +16,17 @@
     <description><![CDATA[
     帮助开发者快速生成当前Java方法的HTTP请求复制到剪贴板，支持Bash Curl和Python Request两种格式。
     还可以便捷复制URL的路径、完整URL和相对URL。
+    
+    此版本修复了在 IntelliJ IDEA 2024.3.5 版本中的内存泄漏问题。
   ]]></description>
 
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>
+    
+    <!-- 声明插件兼容性 -->
+    <idea-version since-build="222.0" until-build="243.*"/>
 
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
@@ -60,7 +65,7 @@
                 
         <!-- Web Copy URL菜单组 -->
         <group id="WebCopyUrlGroup" class="com.rhw.weburlcopy.action.WebCopyUrlActionGroup" 
-               text="Web Copy URL" description="Copy web URL for current method or class" popup="true">
+               text="Web Copy URL" description="Copy web URL for current method or class">
             <!-- 添加到编辑器和项目视图的右键菜单 -->
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
             <add-to-group group-id="ProjectViewPopupMenu" anchor="first"/>
