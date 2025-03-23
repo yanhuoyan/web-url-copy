@@ -24,6 +24,10 @@ An IntelliJ IDEA plugin that helps developers quickly generate HTTP requests fro
 4. The request code will be copied to your clipboard
 5. Configure request addresses and headers through the "Web URL Config" tool window on the right side of the IDE
 
+### Right-Click Menu
+
+![Right-Click Menu](pic/鼠标右键.png)
+
 ## Configuration
 
 Through the "Web URL Config" tool window on the right side of the IDE, you can:
@@ -32,6 +36,14 @@ Through the "Web URL Config" tool window on the right side of the IDE, you can:
 - Add/remove/edit custom request headers
 - Configure default content types for requests
 - Set authentication tokens or credentials if needed
+
+### Environment & Headers Configuration
+
+![Environment and Headers Configuration](pic/配置环境和请求头.png)
+
+### Environment & Parameters Configuration
+
+![Environment and Parameters Configuration](pic/配置环境和参数.png)
 
 ## Supported Frameworks
 

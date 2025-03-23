@@ -4,6 +4,13 @@ IntelliJ IDEA插件，帮助开发者快速生成当前Java方法的HTTP请求�
 
 简体中文 | [English](README.md)
 
+## 2024.3.5 版本适配说明
+
+针对 IntelliJ IDEA 2024.3.5 版本中出现的内存泄漏问题，本次更新做了如下修改：
+
+1. 新增 `DisposerUtil` 工具类，用于正确处理 Disposable 对象
+2. 修改 `ConfigToolWindowPanel` 类，使其实现 Disposable 接口并正确处理资源释放
+
 ## 功能特点
 
 - **Bash Curl 命令生成**：直接从Java控制器方法生成并复制curl命令
@@ -24,6 +31,10 @@ IntelliJ IDEA插件，帮助开发者快速生成当前Java方法的HTTP请求�
 4. 请求代码会被复制到剪贴板
 5. 通过IDE右侧的"Web URL Config"工具窗口可以配置请求地址和头信息
 
+### 右键菜单
+
+![右键菜单](pic/鼠标右键.png)
+
 ## 配置
 
 通过IDE右侧的"Web URL Config"工具窗口可以：
@@ -32,6 +43,14 @@ IntelliJ IDEA插件，帮助开发者快速生成当前Java方法的HTTP请求�
 - 添加/删除/编辑自定义请求头
 - 配置请求的默认内容类型
 - 设置认证令牌或凭证（如需要）
+
+### 环境和请求头配置
+
+![环境和请求头配置](pic/配置环境和请求头.png)
+
+### 环境和参数配置
+
+![环境和参数配置](pic/配置环境和参数.png)
 
 ## 支持的框架
 
