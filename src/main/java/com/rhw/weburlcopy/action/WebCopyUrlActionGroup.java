@@ -26,16 +26,17 @@ public class WebCopyUrlActionGroup extends DefaultActionGroup {
         setPopup(true);
         
         // 添加子操作到菜单组
-        // 1. 复制URL路径（只有路径部分）
-        add(new CopyUrlPathAction());
-        // 2. 复制完整URL（带域名和协议）
-        add(new CopyFullUrlAction());
-        // 3. 复制相对URL（路径+参数）
-        add(new CopyRelationUrlAction());
-        // 4. 复制Bash Curl命令（原有功能）
+        // 1. 复制Bash Curl命令（原有功能）
         add(new CopyBashCurlAction());
-        // 5. 复制Python请求代码（原有功能）
+        // 2. 复制Python请求代码（原有功能）
         add(new CopyPythonRequestAction());
+        // 3. 复制完整URL（带域名和协议）
+        add(new CopyFullUrlAction());
+        // 4. 复制URL路径（只有路径部分）
+        add(new CopyUrlPathAction());
+        // 5. 复制相对URL（路径+参数）
+        add(new CopyRelationUrlAction());
+
     }
 
     @Override

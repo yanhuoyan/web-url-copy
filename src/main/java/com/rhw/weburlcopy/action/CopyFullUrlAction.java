@@ -1,8 +1,8 @@
 package com.rhw.weburlcopy.action;
 
+import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.ide.CopyPasteManager;
 import com.intellij.openapi.project.Project;
@@ -13,8 +13,6 @@ import com.rhw.weburlcopy.util.RequestUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.datatransfer.StringSelection;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 复制完整URL

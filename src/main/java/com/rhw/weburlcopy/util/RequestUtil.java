@@ -1,10 +1,19 @@
 package com.rhw.weburlcopy.util;
 
-import cn.hutool.core.util.StrUtil;
-import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
-import com.intellij.psi.*;
-import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.psi.PsiAnnotation;
+import com.intellij.psi.PsiAnnotationMemberValue;
+import com.intellij.psi.PsiArrayInitializerMemberValue;
+import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiClassType;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiField;
+import com.intellij.psi.PsiLiteralExpression;
+import com.intellij.psi.PsiMethod;
+import com.intellij.psi.PsiModifier;
+import com.intellij.psi.PsiNameValuePair;
+import com.intellij.psi.PsiParameter;
+import com.intellij.psi.PsiType;
 import com.rhw.weburlcopy.model.ConfigSettings;
 
 import java.util.ArrayList;
@@ -99,6 +108,7 @@ public class RequestUtil {
                     String qualifiedName = annotation.getQualifiedName();
                     if (qualifiedName != null && (
                             qualifiedName.contains("Mapping") || // 匹配各种Mapping注解
+                            qualifiedName.contains("GetMapping") || // 明确支持GetMapping
                             qualifiedName.contains("GET") ||
                             qualifiedName.contains("POST") ||
                             qualifiedName.contains("PUT") ||
@@ -162,7 +172,7 @@ public class RequestUtil {
             String qualifiedName = annotation.getQualifiedName();
             if (qualifiedName == null) continue;
 
-            // Spring MVC注解
+            // Spring MVC注解 - 处理 GetMapping 和其他 Mapping 注解
             if (qualifiedName.contains("Mapping")) {
                 PsiNameValuePair[] attributes = annotation.getParameterList().getAttributes();
                 for (PsiNameValuePair attribute : attributes) {
@@ -226,8 +236,12 @@ public class RequestUtil {
     /**
      * 判断请求方法类型
      */
-    public static String getRequestMethod(PsiMethod method) {
+    public static String getRequestMethod(PsiMethod method, boolean hasJsonParam, boolean hasComplexObjectParam) {
         if (method == null) {
+            if (hasJsonParam || hasComplexObjectParam) {
+                return "POST";
+            }
+
             return "GET";
         }
         
@@ -279,6 +293,10 @@ public class RequestUtil {
                 return "DELETE";
             }
         }
+
+        if (hasJsonParam || hasComplexObjectParam) {
+            return "POST";
+        }
         
         // 默认为GET
         return "GET";
@@ -292,6 +310,9 @@ public class RequestUtil {
         if (method == null) {
             return parameters;
         }
+        
+        // 首先处理路径变量
+        extractPathVariables(method, parameters);
         
         PsiParameter[] params = method.getParameterList().getParameters();
         boolean hasJsonParam = false;
@@ -322,6 +343,10 @@ public class RequestUtil {
                 // 处理基本类型和String
                 // 首先尝试从@RequestParam注解中获取参数名
                 String paramName = getRequestParamValue(param);
+                // 检查是否是路径变量，如果是则跳过（已经在extractPathVariables中处理过）
+                if (isPathVariable(param)) {
+                    continue;
+                }
                 if (paramName == null) {
                     paramName = param.getName(); // 如果没有注解或注解没有value值，使用参数原名
                 }
@@ -539,29 +564,146 @@ public class RequestUtil {
     }
 
     /**
+     * 从请求路径中提取路径变量并添加到参数Map中
+     * 
+     * @param method 方法对象
+     * @param parameters 用于存储路径变量的Map
+     */
+    private static void extractPathVariables(PsiMethod method, Map<String, String> parameters) {
+        if (method == null) {
+            return;
+        }
+        
+        // 获取请求路径
+        String path = getRequestPath(method);
+        
+        // 解析路径中的变量 {varName}
+        List<String> pathVars = extractPathVariableNames(path);
+        
+        // 尝试从方法参数中匹配路径变量注解
+        for (PsiParameter param : method.getParameterList().getParameters()) {
+            if (isPathVariable(param)) {
+                String pathVarName = getPathVariableName(param);
+                if (pathVarName != null) {
+                    parameters.put(pathVarName, getDefaultValueForType(param.getType()));
+                }
+            } else {
+                // 检查参数名是否与路径变量匹配
+                String paramName = param.getName();
+                if (pathVars.contains(paramName)) {
+                    parameters.put(paramName, getDefaultValueForType(param.getType()));
+                }
+            }
+        }
+        
+        // 对于没有匹配到的路径变量，添加默认值
+        for (String pathVar : pathVars) {
+            if (!parameters.containsKey(pathVar)) {
+                parameters.put(pathVar, "1");  // 默认使用数字1作为路径变量的值
+            }
+        }
+    }
+    
+    /**
+     * 检查参数是否是@PathVariable注解
+     */
+    private static boolean isPathVariable(PsiParameter param) {
+        PsiAnnotation[] annotations = param.getAnnotations();
+        for (PsiAnnotation annotation : annotations) {
+            String name = annotation.getQualifiedName();
+            if (name != null && (name.endsWith("PathVariable") || name.contains("javax.ws.rs.PathParam"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * 从@PathVariable注解中获取变量名
+     */
+    private static String getPathVariableName(PsiParameter param) {
+        PsiAnnotation[] annotations = param.getAnnotations();
+        for (PsiAnnotation annotation : annotations) {
+            String qualifiedName = annotation.getQualifiedName();
+            if (qualifiedName != null && (qualifiedName.endsWith("PathVariable") || qualifiedName.contains("javax.ws.rs.PathParam"))) {
+                // 从注解中获取value属性或name属性
+                PsiNameValuePair[] attributes = annotation.getParameterList().getAttributes();
+                for (PsiNameValuePair attribute : attributes) {
+                    String attrName = attribute.getName();
+                    // value和name属性都可以指定参数名
+                    if ("value".equals(attrName) || "name".equals(attrName) || attrName == null) {
+                        String literalValue = attribute.getLiteralValue();
+                        if (literalValue != null && !literalValue.isEmpty()) {
+                            return literalValue;
+                        }
+                        
+                        // 处理可能的复杂表达式
+                        PsiElement valueElement = attribute.getValue();
+                        if (valueElement != null) {
+                            String text = valueElement.getText();
+                            if (text != null && text.startsWith("\"") && text.endsWith("\"") && text.length() >= 2) {
+                                return text.substring(1, text.length() - 1);
+                            }
+                        }
+                    }
+                }
+                
+                // 如果没有明确指定名称，则使用参数名
+                return param.getName();
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * 从请求路径中提取所有的路径变量名
+     * 
+     * @param path 请求路径
+     * @return 路径变量名列表
+     */
+    private static List<String> extractPathVariableNames(String path) {
+        List<String> vars = new ArrayList<>();
+        if (path == null || path.isEmpty()) {
+            return vars;
+        }
+        
+        // 使用简单的正则表达式查找形如 {varName} 的路径变量
+        int startIndex = 0;
+        while (true) {
+            int openBrace = path.indexOf('{', startIndex);
+            if (openBrace == -1) break;
+            
+            int closeBrace = path.indexOf('}', openBrace);
+            if (closeBrace == -1) break;
+            
+            // 提取变量名
+            String varName = path.substring(openBrace + 1, closeBrace);
+            if (!varName.isEmpty()) {
+                vars.add(varName);
+            }
+            
+            startIndex = closeBrace + 1;
+        }
+        
+        return vars;
+    }
+
+    /**
      * 生成curl命令
      */
     public static String generateCurlCommand(Project project, PsiMethod method) {
         if (method == null) {
             return "";
         }
-        
-        String requestMethod = getRequestMethod(method);
-        String path = getRequestPath(method);
+
         Map<String, String> parameters = getParameters(method);
-        
-        // 如果有JSON参数，强制使用POST方法
         boolean hasJsonParam = parameters.containsKey("_hasJsonParam");
-        if (hasJsonParam) {
-            requestMethod = "POST";
-        }
-        parameters.remove("_hasJsonParam"); // 移除标记
-        
-        // 如果有复杂对象参数但不是JSON，也使用POST方法
         boolean hasComplexObjectParam = parameters.containsKey("_hasComplexObjectParam");
-        if (hasComplexObjectParam) {
-            requestMethod = "POST";
-        }
+
+        String requestMethod = getRequestMethod(method, hasJsonParam, hasComplexObjectParam);
+        String path = getRequestPath(method);
+
+        parameters.remove("_hasJsonParam"); // 移除标记
         parameters.remove("_hasComplexObjectParam"); // 移除标记
         
         ConfigSettings settings = ConfigSettings.getInstance(project);
@@ -666,23 +808,14 @@ public class RequestUtil {
         if (method == null) {
             return "";
         }
-        
-        String requestMethod = getRequestMethod(method);
-        String path = getRequestPath(method);
         Map<String, String> parameters = getParameters(method);
-        
-        // 如果有JSON参数，强制使用POST方法
         boolean hasJsonParam = parameters.containsKey("_hasJsonParam");
-        if (hasJsonParam) {
-            requestMethod = "POST";
-        }
-        parameters.remove("_hasJsonParam"); // 移除标记
-        
-        // 如果有复杂对象参数但不是JSON，也使用POST方法
         boolean hasComplexObjectParam = parameters.containsKey("_hasComplexObjectParam");
-        if (hasComplexObjectParam) {
-            requestMethod = "POST";
-        }
+
+        String requestMethod = getRequestMethod(method, hasJsonParam, hasComplexObjectParam);
+        String path = getRequestPath(method);
+
+        parameters.remove("_hasJsonParam"); // 移除标记
         parameters.remove("_hasComplexObjectParam"); // 移除标记
         
         ConfigSettings settings = ConfigSettings.getInstance(project);
@@ -810,9 +943,9 @@ public class RequestUtil {
         String path = getRequestPath(method);
         
         // 确保路径不以斜杠开头，以适应拼接
-        if (path.startsWith("/") && path.length() > 1) {
-            path = path.substring(1);
-        }
+//        if (path.startsWith("/") && path.length() > 1) {
+//            path = path.substring(1);
+//        }
         
         return path;
     }
@@ -829,11 +962,14 @@ public class RequestUtil {
         if (method == null) {
             return "";
         }
-        
-        String requestMethod = getRequestMethod(method);
-        String path = getRequestPath(method);
+
         Map<String, String> parameters = getParameters(method);
-        
+        boolean hasJsonParam = parameters.containsKey("_hasJsonParam");
+        boolean hasComplexObjectParam = parameters.containsKey("_hasComplexObjectParam");
+
+        String requestMethod = getRequestMethod(method, hasJsonParam, hasComplexObjectParam);
+        String path = getRequestPath(method);
+
         // 移除内部标记
         parameters.remove("_hasJsonParam");
         parameters.remove("_hasComplexObjectParam");
@@ -885,10 +1021,9 @@ public class RequestUtil {
             return "";
         }
         
-        String requestMethod = getRequestMethod(method);
         String path = getRequestPath(method);
         Map<String, String> parameters = getParameters(method);
-        
+
         // 移除内部标记
         parameters.remove("_hasJsonParam");
         parameters.remove("_hasComplexObjectParam");

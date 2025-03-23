@@ -71,11 +71,11 @@
             <add-to-group group-id="ProjectViewPopupMenu" anchor="first"/>
             
             <!-- 添加子菜单 -->
-            <reference ref="com.rhw.weburlcopy.CopyUrlPath"/>
-            <reference ref="com.rhw.weburlcopy.CopyFullUrl"/>
-            <reference ref="com.rhw.weburlcopy.CopyRelationUrl"/>
             <reference ref="com.rhw.weburlcopy.CopyBashCurl"/>
             <reference ref="com.rhw.weburlcopy.CopyPythonRequest"/>
+            <reference ref="com.rhw.weburlcopy.CopyFullUrl"/>
+            <reference ref="com.rhw.weburlcopy.CopyUrlPath"/>
+            <reference ref="com.rhw.weburlcopy.CopyRelationUrl"/>
         </group>
     </actions>
 </idea-plugin>
