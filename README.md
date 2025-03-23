@@ -4,13 +4,6 @@ An IntelliJ IDEA plugin that helps developers quickly generate HTTP requests fro
 
 [简体中文](README.zh.md) | English
 
-## Version 2024.3.5 Update Notes
-
-To address memory leak issues in IntelliJ IDEA 2024.3.5, the following changes have been made:
-
-1. Added `DisposerUtil` utility class for proper handling of Disposable objects
-2. Modified `ConfigToolWindowPanel` class to implement Disposable interface and correctly manage resource disposal
-
 ## Features
 
 - **Bash Curl Commands**: Generate and copy curl commands directly from your Java controller methods
