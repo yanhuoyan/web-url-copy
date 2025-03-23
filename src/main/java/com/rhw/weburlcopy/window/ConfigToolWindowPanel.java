@@ -628,27 +628,72 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         // 创建表格
         headersTable = new JBTable(headersTableModel);
         headersTable.setRowHeight(30);
-        headersTable.setShowGrid(false);
         headersTable.setIntercellSpacing(new Dimension(0, 0));
         headersTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         headersTable.getTableHeader().setReorderingAllowed(false);
+        
+        // 设置表头渲染器
         headersTable.getTableHeader().setDefaultRenderer(new javax.swing.table.DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 label.setFont(label.getFont().deriveFont(Font.BOLD));
                 label.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createMatteBorder(0, 0, 1, 0, UIUtil.getBoundsColor()),
+                        BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(70, 70, 70)),
                         BorderFactory.createEmptyBorder(5, 5, 5, 5)));
-                label.setBackground(UIUtil.getPanelBackground());
+                label.setBackground(new Color(60, 63, 65)); // 表头使用深灰色
+                label.setForeground(new Color(187, 187, 187)); // 浅灰色文字
                 return label;
             }
         });
         
+        // 设置单元格渲染器
+        headersTable.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                
+                // 统一设置单元格边框为深灰色
+                label.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(0, 0, 1, 1, new Color(70, 70, 70)),
+                        BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+                
+                if (isSelected) {
+                    // 选中行使用稍亮的灰色
+                    label.setBackground(new Color(75, 110, 175));
+                    label.setForeground(new Color(230, 230, 230));
+                } else {
+                    // 交替行使用不同深度的深灰色
+                    if (row % 2 == 0) {
+                        label.setBackground(new Color(43, 43, 43)); // 深灰色
+                        label.setForeground(new Color(187, 187, 187));
+                    } else {
+                        label.setBackground(new Color(49, 51, 53)); // 稍浅的深灰色
+                        label.setForeground(new Color(187, 187, 187));
+                    }
+                    
+                    // 突出显示新添加的空行
+                    if (row == table.getRowCount() - 1 && 
+                        table.getValueAt(row, 0) != null && 
+                        table.getValueAt(row, 0).toString().isEmpty()) {
+                        label.setBackground(new Color(50, 55, 65)); // 带蓝色调的深灰色
+                    }
+                }
+                
+                return label;
+            }
+        });
+        
+        // 设置表格网格线
+        headersTable.setShowGrid(true);
+        headersTable.setGridColor(new Color(70, 70, 70)); // 深灰色网格线
+        
+        // 请求头表格容器
         JBScrollPane scrollPane = new JBScrollPane(headersTable);
         scrollPane.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(UIUtil.getBoundsColor(), 1),
+                BorderFactory.createLineBorder(new Color(50, 50, 50), 1),
                 BorderFactory.createEmptyBorder(0, 0, 0, 0)));
+        scrollPane.getViewport().setBackground(new Color(43, 43, 43)); // 设置滚动视图背景为深灰色
         
         // 操作按钮面板
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
@@ -701,27 +746,72 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
         // 创建表格
         paramsTable = new JBTable(paramsTableModel);
         paramsTable.setRowHeight(30);
-        paramsTable.setShowGrid(false);
         paramsTable.setIntercellSpacing(new Dimension(0, 0));
         paramsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         paramsTable.getTableHeader().setReorderingAllowed(false);
+        
+        // 设置表头渲染器
         paramsTable.getTableHeader().setDefaultRenderer(new javax.swing.table.DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 label.setFont(label.getFont().deriveFont(Font.BOLD));
                 label.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createMatteBorder(0, 0, 1, 0, UIUtil.getBoundsColor()),
+                        BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(70, 70, 70)),
                         BorderFactory.createEmptyBorder(5, 5, 5, 5)));
-                label.setBackground(UIUtil.getPanelBackground());
+                label.setBackground(new Color(60, 63, 65)); // 表头使用深灰色
+                label.setForeground(new Color(187, 187, 187)); // 浅灰色文字
                 return label;
             }
         });
         
+        // 设置单元格渲染器
+        paramsTable.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                
+                // 统一设置单元格边框为深灰色
+                label.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(0, 0, 1, 1, new Color(70, 70, 70)),
+                        BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+                
+                if (isSelected) {
+                    // 选中行使用稍亮的灰色
+                    label.setBackground(new Color(75, 110, 175));
+                    label.setForeground(new Color(230, 230, 230));
+                } else {
+                    // 交替行使用不同深度的深灰色
+                    if (row % 2 == 0) {
+                        label.setBackground(new Color(43, 43, 43)); // 深灰色
+                        label.setForeground(new Color(187, 187, 187));
+                    } else {
+                        label.setBackground(new Color(49, 51, 53)); // 稍浅的深灰色
+                        label.setForeground(new Color(187, 187, 187));
+                    }
+                    
+                    // 突出显示新添加的空行
+                    if (row == table.getRowCount() - 1 && 
+                        table.getValueAt(row, 0) != null && 
+                        table.getValueAt(row, 0).toString().isEmpty()) {
+                        label.setBackground(new Color(50, 55, 65)); // 带蓝色调的深灰色
+                    }
+                }
+                
+                return label;
+            }
+        });
+        
+        // 设置表格网格线
+        paramsTable.setShowGrid(true);
+        paramsTable.setGridColor(new Color(70, 70, 70)); // 深灰色网格线
+        
+        // 默认参数表格容器
         JBScrollPane scrollPane = new JBScrollPane(paramsTable);
         scrollPane.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(UIUtil.getBoundsColor(), 1),
+                BorderFactory.createLineBorder(new Color(50, 50, 50), 1),
                 BorderFactory.createEmptyBorder(0, 0, 0, 0)));
+        scrollPane.getViewport().setBackground(new Color(43, 43, 43)); // 设置滚动视图背景为深灰色
         
         // 操作按钮面板
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
@@ -860,6 +950,42 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
      */
     private void addHeader() {
         headersTableModel.addRow(new Object[]{"", ""});
+        
+        // 滚动到新行并设置选中
+        int newRowIndex = headersTableModel.getRowCount() - 1;
+        headersTable.scrollRectToVisible(headersTable.getCellRect(newRowIndex, 0, true));
+        headersTable.setRowSelectionInterval(newRowIndex, newRowIndex);
+        
+        // 将焦点设置到第一个单元格
+        headersTable.editCellAt(newRowIndex, 0);
+        Component editorComponent = headersTable.getEditorComponent();
+        if (editorComponent != null) {
+            editorComponent.requestFocusInWindow();
+        }
+        
+        // 添加闪烁效果提示用户
+        new Thread(() -> {
+            try {
+                for (int i = 0; i < 3; i++) {
+                    final Color originalColor = headersTable.getSelectionBackground();
+                    final Color highlightColor = new Color(65, 90, 120); // 深蓝灰色闪烁效果
+                    
+                    SwingUtilities.invokeLater(() -> {
+                        headersTable.setSelectionBackground(highlightColor);
+                    });
+                    
+                    Thread.sleep(200);
+                    
+                    SwingUtilities.invokeLater(() -> {
+                        headersTable.setSelectionBackground(originalColor);
+                    });
+                    
+                    Thread.sleep(200);
+                }
+            } catch (InterruptedException ignored) {
+                // 忽略中断异常
+            }
+        }).start();
     }
     
     /**
@@ -896,6 +1022,42 @@ public class ConfigToolWindowPanel extends JBPanel<ConfigToolWindowPanel> {
      */
     private void addDefaultParam() {
         paramsTableModel.addRow(new Object[]{"", ""});
+        
+        // 滚动到新行并设置选中
+        int newRowIndex = paramsTableModel.getRowCount() - 1;
+        paramsTable.scrollRectToVisible(paramsTable.getCellRect(newRowIndex, 0, true));
+        paramsTable.setRowSelectionInterval(newRowIndex, newRowIndex);
+        
+        // 将焦点设置到第一个单元格
+        paramsTable.editCellAt(newRowIndex, 0);
+        Component editorComponent = paramsTable.getEditorComponent();
+        if (editorComponent != null) {
+            editorComponent.requestFocusInWindow();
+        }
+        
+        // 添加闪烁效果提示用户
+        new Thread(() -> {
+            try {
+                for (int i = 0; i < 3; i++) {
+                    final Color originalColor = paramsTable.getSelectionBackground();
+                    final Color highlightColor = new Color(65, 90, 120); // 深蓝灰色闪烁效果
+                    
+                    SwingUtilities.invokeLater(() -> {
+                        paramsTable.setSelectionBackground(highlightColor);
+                    });
+                    
+                    Thread.sleep(200);
+                    
+                    SwingUtilities.invokeLater(() -> {
+                        paramsTable.setSelectionBackground(originalColor);
+                    });
+                    
+                    Thread.sleep(200);
+                }
+            } catch (InterruptedException ignored) {
+                // 忽略中断异常
+            }
+        }).start();
     }
     
     /**
