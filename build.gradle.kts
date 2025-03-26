@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.rhw"
-version = "1.4"
+version = "1.4.1"
 
 repositories {
     mavenCentral()

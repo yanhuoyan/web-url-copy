@@ -39,7 +39,7 @@
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="Web URL Config" secondary="true" icon="AllIcons.General.Web" anchor="right"
+        <toolWindow id="Web URL Config" secondary="true" icon="/icons/toolWindow.svg" anchor="right"
                     factoryClass="com.rhw.weburlcopy.window.ConfigToolWindowFactory"/>
         <projectService serviceImplementation="com.rhw.weburlcopy.model.ConfigSettings"/>
     </extensions>
